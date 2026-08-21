@@ -1,0 +1,1814 @@
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ export ES9_USER="elastic"
+export ES9_PASS="elastic"
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ export ES6_USER="elastic"
+export ES6_PASS="elastic"
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ export ES6_URL="http://localhost:9206"
+export ES7_URL="http://localhost:9207"
+export ES8_URL="http://localhost:9208"
+export ES9_URL="http://localhost:9209"
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -u "$ES6_USER:$ES6_PASS" "$ES6_URL"
+{
+  "name" : "es6",
+  "cluster_name" : "migration-es6",
+  "cluster_uuid" : "SQlfM6xqTmmAvqupqouMiQ",
+  "version" : {
+    "number" : "6.8.23",
+    "build_flavor" : "default",
+    "build_type" : "docker",
+    "build_hash" : "4f67856",
+    "build_date" : "2022-01-06T21:30:50.087716Z",
+    "build_snapshot" : false,
+    "lucene_version" : "7.7.3",
+    "minimum_wire_compatibility_version" : "5.6.0",
+    "minimum_index_compatibility_version" : "5.0.0"
+  },
+  "tagline" : "You Know, for Search"
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -u "$ES9_USER:$ES9_PASS" "$ES9_URL"
+{
+  "name" : "es9",
+  "cluster_name" : "migration-es9",
+  "cluster_uuid" : "-oCIvlMdQ3eeuFWRn3sgoA",
+  "version" : {
+    "number" : "9.2.3",
+    "build_flavor" : "default",
+    "build_type" : "docker",
+    "build_hash" : "d8972a71dbbd64ff17f2f4dba9ca2c3fe09fb100",
+    "build_date" : "2025-12-16T10:09:08.849001802Z",
+    "build_snapshot" : false,
+    "lucene_version" : "10.3.2",
+    "minimum_wire_compatibility_version" : "8.19.0",
+    "minimum_index_compatibility_version" : "8.0.0"
+  },
+  "tagline" : "You Know, for Search"
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -u "$ES6_USER:$ES6_PASS" \
+  "$ES6_URL/_cat/indices/.security*?v"
+health status index       uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+green  open   .security-6 1DfCdq2PThCm9TYti1Af6A   1   0         11            0     12.2kb         12.2kb
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -u "$ES6_USER:$ES6_PASS" \
+  "$ES6_URL/_migration/system_features?pretty"
+{
+  "error" : "Incorrect HTTP method for uri [/_migration/system_features?pretty] and method [GET], allowed: [POST]",
+  "status" : 405
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -u "$ES6_USER:$ES6_PASS" \
+  -X POST "$ES6_URL/_security/user/migration_user" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "password": "Migration123!",
+    "roles": ["superuser"],
+    "full_name": "Migration Test User",
+    "email": "migration@example.com"
+  }'
+{"user":{"created":true},"created":true}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -u "$ES6_USER:$ES6_PASS" \
+  -X POST "$ES6_URL/_security/user/migration_user" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "password": "Migration123!",
+    "roles": ["superuser"],
+    "full_name": "Migration Test User",
+    "email": "migration@example.com"
+  }'
+{"user":{"created":false},"created":false}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -u "$ES6_USER:$ES6_PASS" \
+  "$ES6_URL/_migration/system_features?pretty"
+{
+  "error" : "Incorrect HTTP method for uri [/_migration/system_features?pretty] and method [GET], allowed: [POST]",
+  "status" : 405
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -u "$ES6_USER:$ES6_PASS" \
+  -X PUT "$ES6_URL/_snapshot/migration_repo" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "type": "fs",
+    "settings": {
+      "location": "/snapshots"
+    }
+  }'
+{"acknowledged":true}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -u "$ES6_USER:$ES6_PASS" \
+  -X POST "$ES6_URL/_snapshot/migration_repo/_verify?pretty"
+{
+  "nodes" : {
+    "Yx3SxEedSWGNhcKnfjCaSg" : {
+      "name" : "es6"
+    }
+  }
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS -u "$ES6_USER:$ES6_PASS" \
+  "$ES6_URL/_security/user/migration_user?pretty"
+{
+  "migration_user" : {
+    "username" : "migration_user",
+    "roles" : [
+      "superuser"
+    ],
+    "full_name" : "Migration Test User",
+    "email" : "migration@example.com",
+    "metadata" : { },
+    "enabled" : true
+  }
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ export MIGRATION_USER="migration_user"
+export MIGRATION_PASS="Migration123!"
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS -u "$MIGRATION_USER:$MIGRATION_PASS" \
+  "$ES6_URL/_security/_authenticate?pretty"
+{
+  "username" : "migration_user",
+  "roles" : [
+    "superuser"
+  ],
+  "full_name" : "Migration Test User",
+  "email" : "migration@example.com",
+  "metadata" : { },
+  "enabled" : true,
+  "authentication_realm" : {
+    "name" : "default_native",
+    "type" : "native"
+  },
+  "lookup_realm" : {
+    "name" : "default_native",
+    "type" : "native"
+  }
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS -u "$ES6_USER:$ES6_PASS" \
+  "$ES6_URL/_cat/indices/.security-6?v"
+health status index       uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+green  open   .security-6 1DfCdq2PThCm9TYti1Af6A   1   0         12            0       17kb           17kb
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS -u "$ES6_USER:$ES6_PASS" \
+  "$ES6_URL/_snapshot/migration_repo?pretty"
+{
+  "migration_repo" : {
+    "type" : "fs",
+    "settings" : {
+      "location" : "/snapshots"
+    }
+  }
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS -u "$ES6_USER:$ES6_PASS" \
+  -X PUT "$ES6_URL/_snapshot/migration_repo/es6_security_01?wait_for_completion=true" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "indices": ".security-6",
+    "include_global_state": false
+  }'
+{"snapshot":{"snapshot":"es6_security_01","uuid":"lnS58aCmQFGRSiDhVKH27A","version_id":6082399,"version":"6.8.23","indices":[".security-6"],"include_global_state":false,"state":"SUCCESS","start_time":"2026-08-21T14:15:34.598Z","start_time_in_millis":1787321734598,"end_time":"2026-08-21T14:15:34.901Z","end_time_in_millis":1787321734901,"duration_in_millis":303,"failures":[],"shards":{"total":1,"failed":0,"successful":1}}}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS -u "$ES6_USER:$ES6_PASS" \
+  "$ES6_URL/_snapshot/migration_repo/es6_security_01?pretty"
+{
+  "snapshots" : [
+    {
+      "snapshot" : "es6_security_01",
+      "uuid" : "lnS58aCmQFGRSiDhVKH27A",
+      "version_id" : 6082399,
+      "version" : "6.8.23",
+      "indices" : [
+        ".security-6"
+      ],
+      "include_global_state" : false,
+      "state" : "SUCCESS",
+      "start_time" : "2026-08-21T14:15:34.598Z",
+      "start_time_in_millis" : 1787321734598,
+      "end_time" : "2026-08-21T14:15:34.901Z",
+      "end_time_in_millis" : 1787321734901,
+      "duration_in_millis" : 303,
+      "failures" : [ ],
+      "shards" : {
+        "total" : 1,
+        "failed" : 0,
+        "successful" : 1
+      }
+    }
+  ]
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS -u "$ES6_USER:$ES6_PASS" \
+  "$ES6_URL/_snapshot/migration_repo/_all?pretty"
+{
+  "snapshots" : [
+    {
+      "snapshot" : "es6_security_01",
+      "uuid" : "lnS58aCmQFGRSiDhVKH27A",
+      "version_id" : 6082399,
+      "version" : "6.8.23",
+      "indices" : [
+        ".security-6"
+      ],
+      "include_global_state" : false,
+      "state" : "SUCCESS",
+      "start_time" : "2026-08-21T14:15:34.598Z",
+      "start_time_in_millis" : 1787321734598,
+      "end_time" : "2026-08-21T14:15:34.901Z",
+      "end_time_in_millis" : 1787321734901,
+      "duration_in_millis" : 303,
+      "failures" : [ ],
+      "shards" : {
+        "total" : 1,
+        "failed" : 0,
+        "successful" : 1
+      }
+    }
+  ]
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/_cat/indices/.security*?v"
+{"error":{"root_cause":[{"type":"security_exception","reason":"missing authentication credentials for REST request [/_cat/indices/.security*?v]","header":{"WWW-Authenticate":"Basic realm=\"security\" charset=\"UTF-8\""}}],"type":"security_exception","reason":"missing authentication credentials for REST request [/_cat/indices/.security*?v]","header":{"WWW-Authenticate":"Basic realm=\"security\" charset=\"UTF-8\""}},"status":401}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS "$ES7_URL" | jq .
+bash: jq: command not found
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/_cluster/health?pretty"
+{
+  "error" : {
+    "root_cause" : [
+      {
+        "type" : "security_exception",
+        "reason" : "missing authentication credentials for REST request [/_cluster/health?pretty]",
+        "header" : {
+          "WWW-Authenticate" : "Basic realm=\"security\" charset=\"UTF-8\""
+        }
+      }
+    ],
+    "type" : "security_exception",
+    "reason" : "missing authentication credentials for REST request [/_cluster/health?pretty]",
+    "header" : {
+      "WWW-Authenticate" : "Basic realm=\"security\" charset=\"UTF-8\""
+    }
+  },
+  "status" : 401
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS "$ES7_URL"
+curl: (52) Empty reply from server
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS "$ES7_URL"
+{
+  "name" : "es7",
+  "cluster_name" : "migration-es7",
+  "cluster_uuid" : "O2FScSROQGSeBLIH_j37Jg",
+  "version" : {
+    "number" : "7.17.29",
+    "build_flavor" : "default",
+    "build_type" : "docker",
+    "build_hash" : "580aff1a0064ce4c93293aaab6fcc55e22c10d1c",
+    "build_date" : "2025-06-19T01:37:57.847711500Z",
+    "build_snapshot" : false,
+    "lucene_version" : "8.11.3",
+    "minimum_wire_compatibility_version" : "6.8.0",
+    "minimum_index_compatibility_version" : "6.0.0-beta1"
+  },
+  "tagline" : "You Know, for Search"
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS "$ES8_URL"
+{
+  "name" : "es8",
+  "cluster_name" : "migration-es8",
+  "cluster_uuid" : "QqQZPSlLRmGtt-2ce7iKEA",
+  "version" : {
+    "number" : "8.18.0",
+    "build_flavor" : "default",
+    "build_type" : "docker",
+    "build_hash" : "04e979aa50b657bebd4a0937389308de82c2bdad",
+    "build_date" : "2025-04-10T10:09:16.444104780Z",
+    "build_snapshot" : false,
+    "lucene_version" : "9.12.1",
+    "minimum_wire_compatibility_version" : "7.17.0",
+    "minimum_index_compatibility_version" : "7.0.0"
+  },
+  "tagline" : "You Know, for Search"
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/_snapshot/migration_repo?pretty"
+{
+  "error" : {
+    "root_cause" : [
+      {
+        "type" : "repository_missing_exception",
+        "reason" : "[migration_repo] missing"
+      }
+    ],
+    "type" : "repository_missing_exception",
+    "reason" : "[migration_repo] missing"
+  },
+  "status" : 404
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/_snapshot/migration_repo/es6_security_01?pretty"
+{
+  "snapshots" : [ ],
+  "failures" : {
+    "migration_repo" : {
+      "type" : "repository_missing_exception",
+      "reason" : "[migration_repo] missing"
+    }
+  },
+  "total" : 0,
+  "remaining" : 0
+}
+
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  -X PUT "$ES7_URL/_snapshot/migration_repo" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "type": "fs",
+    "settings": {
+      "location": "/snapshots"
+    }
+  }'
+{"acknowledged":true}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  -X POST "$ES7_URL/_snapshot/migration_repo/_verify?pretty"
+{
+  "nodes" : {
+    "7yD5LcTORPebOqjyJnnOFA" : {
+      "name" : "es7"
+    }
+  }
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/_snapshot/migration_repo/es6_security_01?pretty"
+{
+  "snapshots" : [
+    {
+      "snapshot" : "es6_security_01",
+      "uuid" : "lnS58aCmQFGRSiDhVKH27A",
+      "repository" : "migration_repo",
+      "version_id" : 6082399,
+      "version" : "6.8.23",
+      "indices" : [
+        ".security-6"
+      ],
+      "data_streams" : [ ],
+      "include_global_state" : false,
+      "state" : "SUCCESS",
+      "start_time" : "2026-08-21T14:15:34.598Z",
+      "start_time_in_millis" : 1787321734598,
+      "end_time" : "2026-08-21T14:15:34.901Z",
+      "end_time_in_millis" : 1787321734901,
+      "duration_in_millis" : 303,
+      "failures" : [ ],
+      "shards" : {
+        "total" : 1,
+        "failed" : 0,
+        "successful" : 1
+      },
+      "feature_states" : [ ]
+    }
+  ],
+  "total" : 1,
+  "remaining" : 0
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  -X GET "$ES7_URL/_migration/system_features?pretty"
+{
+  "features" : [
+    {
+      "feature_name" : "async_search",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "enrich",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "fleet",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "geoip",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [
+        {
+          "index" : ".geoip_databases",
+          "version" : "7.17.29"
+        }
+      ]
+    },
+    {
+      "feature_name" : "kibana",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "logstash_management",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "machine_learning",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "searchable_snapshots",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "security",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "tasks",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "transform",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "watcher",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    }
+  ],
+  "migration_status" : "NO_MIGRATION_NEEDED"
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  -X POST \
+  "$ES7_URL/_snapshot/migration_repo/es6_security_01/_restore?wait_for_completion=true" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "indices": ".security-6",
+    "include_global_state": false,
+    "include_aliases": false
+  }'
+{"snapshot":{"snapshot":"es6_security_01","indices":[".security-6"],"shards":{"total":1,"failed":0,"successful":1}}}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/_cat/indices/.security*?v"
+health status index       uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+green  open   .security-6 bonl4rjqQHKjTCNZuazaHQ   1   0         12            0     17.1kb         17.1kb
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/.security-6/_count?pretty
+> ^C
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/.security-6/_count?pretty"
+{
+  "count" : 12,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  }
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/.security-6/_mapping?pretty"
+{
+  ".security-6" : {
+    "mappings" : {
+      "dynamic" : "strict",
+      "_meta" : {
+        "security-version" : "6.8.23"
+      },
+      "properties" : {
+        "access_token" : {
+          "properties" : {
+            "invalidated" : {
+              "type" : "boolean"
+            },
+            "realm" : {
+              "type" : "keyword"
+            },
+            "user_token" : {
+              "properties" : {
+                "authentication" : {
+                  "type" : "binary"
+                },
+                "expiration_time" : {
+                  "type" : "date",
+                  "format" : "epoch_millis"
+                },
+                "id" : {
+                  "type" : "keyword"
+                },
+                "metadata" : {
+                  "type" : "object",
+                  "dynamic" : "false"
+                },
+                "version" : {
+                  "type" : "integer"
+                }
+              }
+            }
+          }
+        },
+        "actions" : {
+          "type" : "keyword"
+        },
+        "api_key_hash" : {
+          "type" : "keyword",
+          "index" : false,
+          "doc_values" : false
+        },
+        "api_key_invalidated" : {
+          "type" : "boolean"
+        },
+        "application" : {
+          "type" : "keyword"
+        },
+        "applications" : {
+          "properties" : {
+            "application" : {
+              "type" : "keyword"
+            },
+            "privileges" : {
+              "type" : "keyword"
+            },
+            "resources" : {
+              "type" : "keyword"
+            }
+          }
+        },
+        "cluster" : {
+          "type" : "keyword"
+        },
+        "creation_time" : {
+          "type" : "date",
+          "format" : "epoch_millis"
+        },
+        "creator" : {
+          "properties" : {
+            "metadata" : {
+              "type" : "object",
+              "dynamic" : "false"
+            },
+            "principal" : {
+              "type" : "keyword"
+            },
+            "realm" : {
+              "type" : "keyword"
+            }
+          }
+        },
+        "doc_type" : {
+          "type" : "keyword"
+        },
+        "email" : {
+          "type" : "text",
+          "analyzer" : "email"
+        },
+        "enabled" : {
+          "type" : "boolean"
+        },
+        "expiration_time" : {
+          "type" : "date",
+          "format" : "epoch_millis"
+        },
+        "full_name" : {
+          "type" : "text"
+        },
+        "global" : {
+          "properties" : {
+            "application" : {
+              "properties" : {
+                "manage" : {
+                  "properties" : {
+                    "applications" : {
+                      "type" : "keyword"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "indices" : {
+          "properties" : {
+            "allow_restricted_indices" : {
+              "type" : "boolean"
+            },
+            "field_security" : {
+              "properties" : {
+                "except" : {
+                  "type" : "keyword"
+                },
+                "grant" : {
+                  "type" : "keyword"
+                }
+              }
+            },
+            "names" : {
+              "type" : "keyword"
+            },
+            "privileges" : {
+              "type" : "keyword"
+            },
+            "query" : {
+              "type" : "keyword"
+            }
+          }
+        },
+        "limited_by_role_descriptors" : {
+          "type" : "object",
+          "enabled" : false
+        },
+        "metadata" : {
+          "type" : "object",
+          "dynamic" : "false"
+        },
+        "name" : {
+          "type" : "keyword"
+        },
+        "password" : {
+          "type" : "keyword",
+          "index" : false,
+          "doc_values" : false
+        },
+        "refresh_token" : {
+          "properties" : {
+            "client" : {
+              "properties" : {
+                "realm" : {
+                  "type" : "keyword"
+                },
+                "type" : {
+                  "type" : "keyword"
+                },
+                "user" : {
+                  "type" : "keyword"
+                }
+              }
+            },
+            "invalidated" : {
+              "type" : "boolean"
+            },
+            "refreshed" : {
+              "type" : "boolean"
+            },
+            "token" : {
+              "type" : "keyword"
+            }
+          }
+        },
+        "role_descriptors" : {
+          "type" : "object",
+          "enabled" : false
+        },
+        "roles" : {
+          "type" : "keyword"
+        },
+        "rules" : {
+          "type" : "object",
+          "dynamic" : "false"
+        },
+        "run_as" : {
+          "type" : "keyword"
+        },
+        "type" : {
+          "type" : "keyword"
+        },
+        "username" : {
+          "type" : "keyword"
+        },
+        "version" : {
+          "type" : "integer"
+        }
+      }
+    }
+  }
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/.security-6/_search?pretty" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "size": 20
+  }'
+{
+  "took" : 16,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 12,
+      "relation" : "eq"
+    },
+    "max_score" : 1.0,
+    "hits" : [
+      {
+        "_index" : ".security-6",
+        "_type" : "doc",
+        "_id" : "user-bob",
+        "_score" : 1.0,
+        "_source" : {
+          "username" : "bob",
+          "password" : "$2a$10$k332yuMgBdsER8FMllfkQ.5xjPbHfUMU0dw7eLWNHV3iCJSuRGI.y",
+          "roles" : [
+            "product_manager"
+          ],
+          "full_name" : "Bob",
+          "email" : "bob@example.com",
+          "metadata" : null,
+          "enabled" : true,
+          "type" : "user"
+        }
+      },
+      {
+        "_index" : ".security-6",
+        "_type" : "doc",
+        "_id" : "user-admin_test",
+        "_score" : 1.0,
+        "_source" : {
+          "username" : "admin_test",
+          "password" : "$2a$10$Mpc7B6xYVDsWUxWcb.vC6OdvJlZEHOPgypL8UfjKdutFYy1Wou5pC",
+          "roles" : [
+            "superuser"
+          ],
+          "full_name" : "Migration Test Admin",
+          "email" : null,
+          "metadata" : null,
+          "enabled" : true,
+          "type" : "user"
+        }
+      },
+      {
+        "_index" : ".security-6",
+        "_type" : "doc",
+        "_id" : "role-product_manager",
+        "_score" : 1.0,
+        "_source" : {
+          "cluster" : [ ],
+          "indices" : [
+            {
+              "names" : [
+                "products"
+              ],
+              "privileges" : [
+                "read",
+                "write",
+                "create_index"
+              ],
+              "allow_restricted_indices" : false
+            }
+          ],
+          "applications" : [ ],
+          "run_as" : [ ],
+          "metadata" : { },
+          "type" : "role"
+        }
+      },
+      {
+        "_index" : ".security-6",
+        "_type" : "doc",
+        "_id" : "role-product_reader",
+        "_score" : 1.0,
+        "_source" : {
+          "cluster" : [ ],
+          "indices" : [
+            {
+              "names" : [
+                "products"
+              ],
+              "privileges" : [
+                "read"
+              ],
+              "allow_restricted_indices" : false
+            }
+          ],
+          "applications" : [ ],
+          "run_as" : [ ],
+          "metadata" : { },
+          "type" : "role"
+        }
+      },
+      {
+        "_index" : ".security-6",
+        "_type" : "doc",
+        "_id" : "reserved-user-logstash_system",
+        "_score" : 1.0,
+        "_source" : {
+          "password" : "$2a$10$vqXawIBxOZIo6QTDvof4jOhFA0lXpNJgH55U8LHaKCIJrFpnDOL2W",
+          "enabled" : true,
+          "type" : "reserved-user"
+        }
+      },
+      {
+        "_index" : ".security-6",
+        "_type" : "doc",
+        "_id" : "reserved-user-remote_monitoring_user",
+        "_score" : 1.0,
+        "_source" : {
+          "password" : "$2a$10$.fr/oXTmOOFUba2y.i1y..a0cWaNfO1D7FJHXQDQWjqcN/.unbD6C",
+          "enabled" : true,
+          "type" : "reserved-user"
+        }
+      },
+      {
+        "_index" : ".security-6",
+        "_type" : "doc",
+        "_id" : "reserved-user-beats_system",
+        "_score" : 1.0,
+        "_source" : {
+          "password" : "$2a$10$e/p5QEypHNfnv7qFXyWpWe46tG9o5Z4YW9OMbmIrTkPFBoqRRvS1e",
+          "enabled" : true,
+          "type" : "reserved-user"
+        }
+      },
+      {
+        "_index" : ".security-6",
+        "_type" : "doc",
+        "_id" : "reserved-user-elastic",
+        "_score" : 1.0,
+        "_source" : {
+          "password" : "$2a$10$kzp/b2zV40056nxLkhEQ0uU5/3vKdg0mPxYwGteN3WC6nhAvxPyfy",
+          "enabled" : true,
+          "type" : "reserved-user"
+        }
+      },
+      {
+        "_index" : ".security-6",
+        "_type" : "doc",
+        "_id" : "reserved-user-apm_system",
+        "_score" : 1.0,
+        "_source" : {
+          "password" : "$2a$10$1g5LqRQJS3lVqb5YDbWy2.wU07gKeJ50XcKUXLCW/DYhwYA27P.kG",
+          "enabled" : true,
+          "type" : "reserved-user"
+        }
+      },
+      {
+        "_index" : ".security-6",
+        "_type" : "doc",
+        "_id" : "reserved-user-kibana",
+        "_score" : 1.0,
+        "_source" : {
+          "password" : "$2a$10$fbY/ZbeYgwBxMpWyWiPMU.213cwKYGF118lx2uF/mmXZgaNkubLFW",
+          "enabled" : true,
+          "type" : "reserved-user"
+        }
+      },
+      {
+        "_index" : ".security-6",
+        "_type" : "doc",
+        "_id" : "user-alice",
+        "_score" : 1.0,
+        "_source" : {
+          "username" : "alice",
+          "password" : "$2a$10$UG4GDmxIlFYHRGEZHVMxs.BDwxBG8kCDOOenIrLSN.vaVHqTvbSv.",
+          "roles" : [
+            "product_reader"
+          ],
+          "full_name" : "Alice",
+          "email" : "alice@example.com",
+          "metadata" : null,
+          "enabled" : true,
+          "type" : "user"
+        }
+      },
+      {
+        "_index" : ".security-6",
+        "_type" : "doc",
+        "_id" : "user-migration_user",
+        "_score" : 1.0,
+        "_source" : {
+          "username" : "migration_user",
+          "password" : "$2a$10$R4RxEigZq/Idk0bA0KW6dO1NOSg9OCLl6To7OKYwKw.1vUtFlDnsi",
+          "roles" : [
+            "superuser"
+          ],
+          "full_name" : "Migration Test User",
+          "email" : "migration@example.com",
+          "metadata" : null,
+          "enabled" : true,
+          "type" : "user"
+        }
+      }
+    ]
+  }
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/_migration/system_features?pretty"
+{
+  "features" : [
+    {
+      "feature_name" : "async_search",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "enrich",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "fleet",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "geoip",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [
+        {
+          "index" : ".geoip_databases",
+          "version" : "7.17.29"
+        }
+      ]
+    },
+    {
+      "feature_name" : "kibana",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "logstash_management",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "machine_learning",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "searchable_snapshots",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "security",
+      "minimum_index_version" : "6.8.23",
+      "migration_status" : "MIGRATION_NEEDED",
+      "indices" : [
+        {
+          "index" : ".security-6",
+          "version" : "6.8.23"
+        }
+      ]
+    },
+    {
+      "feature_name" : "tasks",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "transform",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "watcher",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    }
+  ],
+  "migration_status" : "MIGRATION_NEEDED"
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  -X POST "$ES7_URL/_migration/system_features" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "features": ["security"]
+  }'
+{"error":{"root_cause":[{"type":"illegal_argument_exception","reason":"request [POST /_migration/system_features] does not support having a body"}],"type":"illegal_argument_exception","reason":"request [POST /_migration/system_features] does not support having a body"},"status":400}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  -X POST "$ES7_URL/_migration/system_features"
+{"accepted":true,"features":[{"feature_name":"security"}]}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/_migration/system_features?pretty"
+{
+  "features" : [
+    {
+      "feature_name" : "async_search",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "enrich",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "fleet",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "geoip",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [
+        {
+          "index" : ".geoip_databases",
+          "version" : "7.17.29"
+        }
+      ]
+    },
+    {
+      "feature_name" : "kibana",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "logstash_management",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "machine_learning",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "searchable_snapshots",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "security",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [
+        {
+          "index" : ".security-6-reindexed-for-8",
+          "version" : "7.17.29"
+        }
+      ]
+    },
+    {
+      "feature_name" : "tasks",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "transform",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "watcher",
+      "minimum_index_version" : "7.17.29",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    }
+  ],
+  "migration_status" : "NO_MIGRATION_NEEDED"
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/_cat/indices/.security*?v"
+health status index                       uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+green  open   .security-6-reindexed-for-8 6_v-NBMVSpKT3kctgh05dg   1   0         12            0      8.9kb          8.9kb
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/_cat/indices/.security*?v"
+health status index                       uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+green  open   .security-6-reindexed-for-8 6_v-NBMVSpKT3kctgh05dg   1   0         12            0      8.9kb          8.9kb
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/.security-6-reindexed-for-8/_count?pretty"
+{
+  "count" : 12,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  }
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/.security-6-reindexed-for-8/_search?pretty" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": {
+      "term": {
+        "username": "migration_user"
+      }
+    }
+  }'
+{
+  "took" : 2,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 1,
+      "relation" : "eq"
+    },
+    "max_score" : 1.2039728,
+    "hits" : [
+      {
+        "_index" : ".security-6-reindexed-for-8",
+        "_type" : "_doc",
+        "_id" : "user-migration_user",
+        "_score" : 1.2039728,
+        "_source" : {
+          "username" : "migration_user",
+          "password" : "$2a$10$R4RxEigZq/Idk0bA0KW6dO1NOSg9OCLl6To7OKYwKw.1vUtFlDnsi",
+          "roles" : [
+            "superuser"
+          ],
+          "full_name" : "Migration Test User",
+          "email" : "migration@example.com",
+          "metadata" : null,
+          "enabled" : true,
+          "type" : "user"
+        }
+      }
+    ]
+  }
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  -X PUT \
+  "$ES7_URL/_snapshot/migration_repo/es7_security_01?wait_for_completion=true" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "indices": ".security-6-reindexed-for-8",
+    "include_global_state": false
+  }'
+{"snapshot":{"snapshot":"es7_security_01","uuid":"L50ugEVXSXWa1ytsPSc_wg","repository":"migration_repo","version_id":7172999,"version":"7.17.29","indices":[".security-6-reindexed-for-8"],"data_streams":[],"include_global_state":false,"state":"SUCCESS","start_time":"2026-08-21T14:29:58.617Z","start_time_in_millis":1787322598617,"end_time":"2026-08-21T14:29:58.817Z","end_time_in_millis":1787322598817,"duration_in_millis":200,"failures":[],"shards":{"total":1,"failed":0,"successful":1},"feature_states":[]}}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/_snapshot/migration_repo/es7_security_01?pretty"
+{
+  "snapshots" : [
+    {
+      "snapshot" : "es7_security_01",
+      "uuid" : "L50ugEVXSXWa1ytsPSc_wg",
+      "repository" : "migration_repo",
+      "version_id" : 7172999,
+      "version" : "7.17.29",
+      "indices" : [
+        ".security-6-reindexed-for-8"
+      ],
+      "data_streams" : [ ],
+      "include_global_state" : false,
+      "state" : "SUCCESS",
+      "start_time" : "2026-08-21T14:29:58.617Z",
+      "start_time_in_millis" : 1787322598617,
+      "end_time" : "2026-08-21T14:29:58.817Z",
+      "end_time_in_millis" : 1787322598817,
+      "duration_in_millis" : 200,
+      "failures" : [ ],
+      "shards" : {
+        "total" : 1,
+        "failed" : 0,
+        "successful" : 1
+      },
+      "feature_states" : [ ]
+    }
+  ],
+  "total" : 1,
+  "remaining" : 0
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ "version" : "7.17.29"
+"state" : "SUCCESS"
+"indices" : [
+  ".security-6-reindexed-for-8"
+]
+/c/Program Files/Go/version: line 1: go1.24.0: command not found
+/c/Program Files/Go/version: line 2: 2025-02-10T23:33:55Z: command not found
+
+real    0m0.023s
+user    0m0.000s
+sys     0m0.030s
+bash: state: command not found
+bash: indices: command not found
+bash: .security-6-reindexed-for-8: command not found
+bash: ]: command not found
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES7_URL/_snapshot/migration_repo/_all?pretty"
+{
+  "snapshots" : [
+    {
+      "snapshot" : "es6_security_01",
+      "uuid" : "lnS58aCmQFGRSiDhVKH27A",
+      "repository" : "migration_repo",
+      "version_id" : 6082399,
+      "version" : "6.8.23",
+      "indices" : [
+        ".security-6"
+      ],
+      "data_streams" : [ ],
+      "include_global_state" : false,
+      "state" : "SUCCESS",
+      "start_time" : "2026-08-21T14:15:34.598Z",
+      "start_time_in_millis" : 1787321734598,
+      "end_time" : "2026-08-21T14:15:34.901Z",
+      "end_time_in_millis" : 1787321734901,
+      "duration_in_millis" : 303,
+      "failures" : [ ],
+      "shards" : {
+        "total" : 1,
+        "failed" : 0,
+        "successful" : 1
+      },
+      "feature_states" : [ ]
+    },
+    {
+      "snapshot" : "es7_security_01",
+      "uuid" : "L50ugEVXSXWa1ytsPSc_wg",
+      "repository" : "migration_repo",
+      "version_id" : 7172999,
+      "version" : "7.17.29",
+      "indices" : [
+        ".security-6-reindexed-for-8"
+      ],
+      "data_streams" : [ ],
+      "include_global_state" : false,
+      "state" : "SUCCESS",
+      "start_time" : "2026-08-21T14:29:58.617Z",
+      "start_time_in_millis" : 1787322598617,
+      "end_time" : "2026-08-21T14:29:58.817Z",
+      "end_time_in_millis" : 1787322598817,
+      "duration_in_millis" : 200,
+      "failures" : [ ],
+      "shards" : {
+        "total" : 1,
+        "failed" : 0,
+        "successful" : 1
+      },
+      "feature_states" : [ ]
+    }
+  ],
+  "total" : 2,
+  "remaining" : 0
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  -X PUT "$ES8_URL/_snapshot/migration_repo" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "type": "fs",
+    "settings": {
+      "location": "/snapshots"
+    }
+  }'
+{"acknowledged":true}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  -X POST "$ES8_URL/_snapshot/migration_repo/_verify?pretty"
+{
+  "nodes" : {
+    "0ZVhQ67XQ0S6DX4dWMC8Ig" : {
+      "name" : "es8"
+    }
+  }
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES8_URL/_snapshot/migration_repo/es7_security_01?pretty"
+{
+  "snapshots" : [
+    {
+      "snapshot" : "es7_security_01",
+      "uuid" : "L50ugEVXSXWa1ytsPSc_wg",
+      "repository" : "migration_repo",
+      "version_id" : 7172999,
+      "version" : "7.17.29-8.0.0",
+      "indices" : [
+        ".security-6-reindexed-for-8"
+      ],
+      "data_streams" : [ ],
+      "include_global_state" : false,
+      "state" : "SUCCESS",
+      "start_time" : "2026-08-21T14:29:58.617Z",
+      "start_time_in_millis" : 1787322598617,
+      "end_time" : "2026-08-21T14:29:58.817Z",
+      "end_time_in_millis" : 1787322598817,
+      "duration_in_millis" : 200,
+      "failures" : [ ],
+      "shards" : {
+        "total" : 1,
+        "failed" : 0,
+        "successful" : 1
+      },
+      "feature_states" : [ ]
+    }
+  ],
+  "total" : 1,
+  "remaining" : 0
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  -X POST \
+  "$ES8_URL/_snapshot/migration_repo/es7_security_01/_restore?wait_for_completion=true" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "indices": ".security-6-reindexed-for-8",
+    "include_global_state": false,
+    "include_aliases": false
+  }'
+{"error":{"root_cause":[{"type":"illegal_state_exception","reason":"alias [.security] has is_hidden set to true on indices [.security-7] but does not have is_hidden set to true on indices [.security-6-reindexed-for-8]; alias must have the same is_hidden setting on all indices"}],"type":"illegal_state_exception","reason":"alias [.security] has is_hidden set to true on indices [.security-7] but does not have is_hiddenset to true on indices [.security-6-reindexed-for-8]; alias must have the same is_hidden setting on all indices"},"status":500}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS   "$ES8_URL/_cat/indices/.security*?v"
+health status index       uuid                   pri rep docs.count docs.deleted store.size pri.store.size dataset.size
+green  open   .security-7 CGcvXmv3R4yR8pGRBTQapg   1   0         32            0     38.1kb         38.1kb       38.1kb
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS   "$ES7_URL/_cat/indices/.security*?v"
+health status index                       uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+green  open   .security-6-reindexed-for-8 6_v-NBMVSpKT3kctgh05dg   1   0         12            0        9kb            9kb
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS "$ES8_URL/_cat/indices/.security*?v"
+curl: (52) Empty reply from server
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS "$ES8_URL/_cat/indices/.security*?v"
+health status index       uuid                   pri rep docs.count docs.deleted store.size pri.store.size dataset.size
+green  open   .security-7 CGcvXmv3R4yR8pGRBTQapg   1   0         32            0     38.1kb         38.1kb       38.1kb
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS "$ES8_URL/_cat/indices/.security*?v"
+curl: (52) Empty reply from server
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS "$ES8_URL/_cat/indices/.security*?v"
+health status index uuid pri rep docs.count docs.deleted store.size pri.store.size dataset.size
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ ES8 = 8.18.0
+security feature = NO_MIGRATION_NEEDED
+indices = []
+bash: ES8: command not found
+bash: security: command not found
+bash: indices: command not found
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS "$ES8_URL/_migration/system_features?pretty"
+{
+  "features" : [
+    {
+      "feature_name" : "async_search",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "enrich",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "ent_search",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "fleet",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "geoip",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "inference_plugin",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "kibana",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "logstash_management",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "machine_learning",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "searchable_snapshots",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "security",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "synonyms",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "tasks",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "transform",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "watcher",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    }
+  ],
+  "migration_status" : "NO_MIGRATION_NEEDED"
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS   -X PUT "$ES8_URL/_snapshot/migration_repo"   -H 'Content-Type: application/json'   -d '{
+    "type": "fs",
+    "settings": {
+      "location": "/snapshots"
+    }
+  }'
+{"acknowledged":true}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  -X POST \
+  "$ES8_URL/_snapshot/migration_repo/es7_security_01/_restore?wait_for_completion=true" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "indices": ".security-6-reindexed-for-8",
+    "include_global_state": false,
+    "include_aliases": false
+  }'
+{"snapshot":{"snapshot":"es7_security_01","indices":[".security-6-reindexed-for-8"],"shards":{"total":1,"failed":0,"successful":1}}}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS "$ES8_URL/_migration/system_features?pretty"
+{
+  "features" : [
+    {
+      "feature_name" : "async_search",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "enrich",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "ent_search",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "fleet",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "geoip",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "inference_plugin",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "kibana",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "logstash_management",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "machine_learning",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "searchable_snapshots",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "security",
+      "minimum_index_version" : "7.17.29-8.0.0",
+      "migration_status" : "MIGRATION_NEEDED",
+      "indices" : [
+        {
+          "index" : ".security-6-reindexed-for-8",
+          "version" : "7.17.29-8.0.0"
+        }
+      ]
+    },
+    {
+      "feature_name" : "synonyms",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "tasks",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "transform",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "watcher",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    }
+  ],
+  "migration_status" : "MIGRATION_NEEDED"
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  -X POST "$ES8_URL/_migration/system_features"
+{"accepted":true,"features":[{"feature_name":"security"}]}
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  "$ES8_URL/_migration/system_features?pretty"
+{
+  "features" : [
+    {
+      "feature_name" : "async_search",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "enrich",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "ent_search",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "fleet",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "geoip",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "inference_plugin",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "kibana",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "logstash_management",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "machine_learning",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "searchable_snapshots",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "security",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [
+        {
+          "index" : ".security-6-reindexed-for-8-reindexed-for-9",
+          "version" : "8.18.0"
+        }
+      ]
+    },
+    {
+      "feature_name" : "synonyms",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "tasks",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "transform",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    },
+    {
+      "feature_name" : "watcher",
+      "minimum_index_version" : "8.18.0",
+      "migration_status" : "NO_MIGRATION_NEEDED",
+      "indices" : [ ]
+    }
+  ],
+  "migration_status" : "NO_MIGRATION_NEEDED"
+}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+$ curl -sS \
+  -X PUT \
+  "$ES8_URL/_snapshot/migration_repo/es8_security_01?wait_for_completion=true" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "feature_states": ["security"],
+    "include_global_state": false
+  }'
+{"snapshot":{"snapshot":"es8_security_01","uuid":"0YTUfiRRQK2k8BneHVEmQw","repository":"migration_repo","version_id":8525000,"version":"8.18.0","indices":[".ds-.logs-deprecation.elasticsearch-default-2026.08.21-000001",".security-6-reindexed-for-8-reindexed-for-9",".ds-ilm-history-7-2026.08.21-000001"],"data_streams":[".logs-deprecation.elasticsearch-default","ilm-history-7"],"include_global_state":false,"state":"SUCCESS","start_time":"2026-08-21T14:54:21.769Z","start_time_in_millis":1787324061769,"end_time":"2026-08-21T14:54:21.970Z","end_time_in_millis":1787324061970,"duration_in_millis":201,"failures":[],"shards":{"total":3,"failed":0,"successful":3},"feature_states":[{"feature_name":"security","indices":[".security-6-reindexed-for-8-reindexed-for-9"]}]}}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic $ curl -sS \ -u "$ES9_USER:$ES9_PASS" \ -X PUT "$ES9_URL/_snapshot/migration_repo" \ -H 'Content-Type: application/json' \ -d '{ "type": "fs", "settings": { "location": "/snapshots" } }' {"acknowledged":true}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic
+
+$ curl -sS \ -u "$ES9_USER:$ES9_PASS" \ -X POST \ "$ES9_URL/_snapshot/migration_repo/es8_security_01/_restore?wait_for_completion=true" \ -H 'Content-Type: application/json' \ -d '{ "indices": "-*", "feature_states": ["security"], "include_global_state": false, "include_aliases": false }' {"snapshot":{"snapshot":"es8_security_01","indices":[".security-6-reindexed-for-8-reindexed-for-9"],"shards":{"total":1,"failed":0,"successful":1}}}
+
+My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic $ curl -sS \ -u "$ES9_USER:$ES9_PASS" \ -X POST \ "$ES9_URL/_snapshot/migration_repo/es8_security_01/_restore?wait_for_completion=true" \ -H 'Content-Type: application/json' \ -d '{ "indices": "-*", "feature_states": ["security"], "include_global_state": false, "include_aliases": false }' {"snapshot":{"snapshot":"es8_security_01","indices":[".security-6-reindexed-for-8-reindexed-for-9"],"shards":{"total":1,"failed":0,"successful":1}}} My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic $ curl -sS -u "$ES9_USER:$ES9_PASS" \ "$ES9_URL/_cat/indices/.security*?v" health status index uuid pri rep docs.count docs.deleted store.size pri.store.size dataset.size green open .security-6-reindexed-for-8-reindexed-for-9 wl4nPPkuTAq3R00_WGl5-w 1 0 41 0 48.4kb 48.4kb 48.4kb My PC@LAPTOP-76H8M8L7 MINGW64 ~/workspaces/Tutorial/Elastic $ curl -sS -u "$ES9_USER:$ES9_PASS" \ "$ES9_URL/_migration/system_features?pretty" { "features" : [ { "feature_name" : "async_search", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "enrich", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "ent_search", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "fleet", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "geoip", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "inference_plugin", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "kibana", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "logstash_management", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "machine_learning", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "searchable_snapshots", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "security", "minimum_index_version" : "8.18.0-8.18.8", "migration_status" : "MIGRATION_NEEDED", "indices" : [ { "index" : ".security-6-reindexed-for-8-reindexed-for-9", "version" : "8.18.0-8.18.8" } ] }, { "feature_name" : "synonyms", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "tasks", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "transform", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "watcher", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] } ], "migration_status" : "MIGRATION_NEEDED" }
+
+curl -sS \
+  -u "$ES9_USER:$ES9_PASS" \
+  -X POST "$ES9_URL/_migration/system_features"
+
+$ curl -sS -u "$ES9_USER:$ES9_PASS" "$ES9_URL/_migration/system_features?pretty" { "features" : [ { "feature_name" : "async_search", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "enrich", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "ent_search", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "fleet", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "geoip", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "inference_plugin", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "kibana", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "logstash_management", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "machine_learning", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "searchable_snapshots", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "security", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ { "index" : ".security-6-reindexed-for-8-reindexed-for-9-reindexed-for-10", "version" : "9.2.3" } ] }, { "feature_name" : "synonyms", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "tasks", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "transform", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] }, { "feature_name" : "watcher", "minimum_index_version" : "9.2.3", "migration_status" : "NO_MIGRATION_NEEDED", "indices" : [ ] } ], "migration_status" : "NO_MIGRATION_NEEDED" }

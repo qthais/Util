@@ -1,0 +1,123 @@
+services:
+
+  es6:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.8.23
+    container_name: es6
+    environment:
+      - node.name=es6
+      - cluster.name=migration-es6
+      - discovery.type=single-node
+
+      # Authentication / Security
+      - xpack.security.enabled=true
+
+      # Snapshot repository
+      - path.repo=/snapshots
+
+      - bootstrap.memory_lock=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+
+    ports:
+      - "9206:9200"
+
+    volumes:
+      - es6_data:/usr/share/elasticsearch/data
+      - ./snapshots:/snapshots
+
+    networks:
+      - es-migration
+
+
+  es7:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.29
+    container_name: es7
+    environment:
+      - node.name=es7
+      - cluster.name=migration-es7
+      - discovery.type=single-node
+
+      # Security OFF
+      - xpack.security.enabled=false
+
+      - path.repo=/snapshots
+
+      - bootstrap.memory_lock=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+
+    ports:
+      - "9207:9200"
+
+    volumes:
+      - es7_data:/usr/share/elasticsearch/data
+      - ./snapshots:/snapshots
+
+    networks:
+      - es-migration
+
+
+  es8:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.18.0
+    container_name: es8
+    environment:
+      - node.name=es8
+      - cluster.name=migration-es8
+      - discovery.type=single-node
+
+      # Security OFF
+      - xpack.security.enabled=false
+
+      - path.repo=/snapshots
+
+      - bootstrap.memory_lock=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+
+    ports:
+      - "9208:9200"
+
+    volumes:
+      - es8_data:/usr/share/elasticsearch/data
+      - ./snapshots:/snapshots
+
+    networks:
+      - es-migration
+
+  es9:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.2.3
+    container_name: es9
+    environment:
+      - node.name=es9
+      - cluster.name=migration-es9
+      - discovery.type=single-node
+
+      # Authentication ON
+      - xpack.security.enabled=true
+
+      # Local test: authentication ON, HTTP TLS OFF
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+
+      - path.repo=/snapshots
+
+      - bootstrap.memory_lock=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+
+    ports:
+      - "9209:9200"
+
+    volumes:
+      - es9_data:/usr/share/elasticsearch/data
+      - ./snapshots:/snapshots
+
+    networks:
+      - es-migration
+
+
+volumes:
+  es6_data:
+  es7_data:
+  es8_data:
+  es9_data:
+
+networks:
+  es-migration:
+    driver: bridge
