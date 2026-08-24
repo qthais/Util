@@ -10,6 +10,27 @@ session captured in [curl.txt](curl.txt). Run them from a Bash-compatible
 shell (Git Bash or WSL). The compose file starts four isolated single-node
 clusters and mounts the same `./snapshots` directory at `/snapshots` in each.
 
+## Automated migration
+
+[`migrate-security-users.sh`](migrate-security-users.sh) automates the full
+runbook. It takes the ES 6 and ES 9 credentials/endpoints as arguments and
+uses the local ES 7 and ES 8 temporary endpoints by default. Start the compose
+clusters first, then run:
+
+```bash
+chmod +x migrate-security-users.sh
+./migrate-security-users.sh \
+  "$ES6_USER" "$ES6_PASS" "$ES6_URL" \
+  "$ES9_USER" "$ES9_PASS" "$ES9_URL"
+```
+
+Set `ES7_URL` and `ES8_URL` if the temporary clusters do not use ports 9207
+and 9208. Run `./migrate-security-users.sh --help` for all options. The script
+intentionally does not specify `include_aliases` in any restore request.
+Every successful mutating request prints Elasticsearch's JSON response, so you
+can inspect fields such as `accepted`, `state`, `indices`, and shard counts or
+capture the run with `./migrate-security-users.sh ... | tee migration.log`.
+
 ## Prerequisites
 
 - Docker and Docker Compose are available.

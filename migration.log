@@ -1,0 +1,130 @@
+NO_MIGRATION_NEEDED
+Checking cluster connectivity...
+{
+  "name" : "es6",
+  "cluster_name" : "migration-es6",
+  "cluster_uuid" : "OHQFmxS3TZOIy-LoJ2qW6Q",
+  "version" : {
+    "number" : "6.8.23",
+    "build_flavor" : "default",
+    "build_type" : "docker",
+    "build_hash" : "4f67856",
+    "build_date" : "2022-01-06T21:30:50.087716Z",
+    "build_snapshot" : false,
+    "lucene_version" : "7.7.3",
+    "minimum_wire_compatibility_version" : "5.6.0",
+    "minimum_index_compatibility_version" : "5.0.0"
+  },
+  "tagline" : "You Know, for Search"
+}
+{
+  "name" : "es7",
+  "cluster_name" : "migration-es7",
+  "cluster_uuid" : "YA7wC769TvGbBRBRaDh6mQ",
+  "version" : {
+    "number" : "7.17.29",
+    "build_flavor" : "default",
+    "build_type" : "docker",
+    "build_hash" : "580aff1a0064ce4c93293aaab6fcc55e22c10d1c",
+    "build_date" : "2025-06-19T01:37:57.847711500Z",
+    "build_snapshot" : false,
+    "lucene_version" : "8.11.3",
+    "minimum_wire_compatibility_version" : "6.8.0",
+    "minimum_index_compatibility_version" : "6.0.0-beta1"
+  },
+  "tagline" : "You Know, for Search"
+}
+{
+  "name" : "es8",
+  "cluster_name" : "migration-es8",
+  "cluster_uuid" : "Twj9Be06S3OTqr4aTfbH4A",
+  "version" : {
+    "number" : "8.18.0",
+    "build_flavor" : "default",
+    "build_type" : "docker",
+    "build_hash" : "04e979aa50b657bebd4a0937389308de82c2bdad",
+    "build_date" : "2025-04-10T10:09:16.444104780Z",
+    "build_snapshot" : false,
+    "lucene_version" : "9.12.1",
+    "minimum_wire_compatibility_version" : "7.17.0",
+    "minimum_index_compatibility_version" : "7.0.0"
+  },
+  "tagline" : "You Know, for Search"
+}
+{
+  "name" : "es9",
+  "cluster_name" : "migration-es9",
+  "cluster_uuid" : "aGTgNy73RXSPw_oDogECMg",
+  "version" : {
+    "number" : "9.2.3",
+    "build_flavor" : "default",
+    "build_type" : "docker",
+    "build_hash" : "d8972a71dbbd64ff17f2f4dba9ca2c3fe09fb100",
+    "build_date" : "2025-12-16T10:09:08.849001802Z",
+    "build_snapshot" : false,
+    "lucene_version" : "10.3.2",
+    "minimum_wire_compatibility_version" : "8.19.0",
+    "minimum_index_compatibility_version" : "8.0.0"
+  },
+  "tagline" : "You Know, for Search"
+}
+
+Registering the shared snapshot repository on ES 6...
+{"acknowledged":true}
+
+Creating ES 6 security snapshot es6_security_20260824163457...
+{"snapshot":{"snapshot":"es6_security_20260824163457","uuid":"KTl3LLLUSduZg0DN97c2sA","version_id":6082399,"version":"6.8.23","indices":[".security-6"],"include_global_state":false,"state":"SUCCESS","start_time":"2026-08-24T16:34:57.983Z","start_time_in_millis":1787589297983,"end_time":"2026-08-24T16:34:58.288Z","end_time_in_millis":1787589298288,"duration_in_millis":305,"failures":[],"shards":{"total":1,"failed":0,"successful":1}}}
+
+Refreshing the shared snapshot repository on ES 7...
+{"acknowledged":true}
+
+Restoring the ES 6 security index into ES 7...
+{"snapshot":{"snapshot":"es6_security_20260824163457","indices":[".security-6"],"shards":{"total":1,"failed":0,"successful":1}}}
+
+Migrating security on ES 7...
+Migrating the security feature on ES7...
+{"accepted":true,"features":[{"feature_name":"security"}]}
+  ES7 security migration status: IN_PROGRESS
+{"features":[{"feature_name":"async_search","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"enrich","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"fleet","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"geoip","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[{"index":".geoip_databases","version":"7.17.29"}]},{"feature_name":"kibana","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"logstash_management","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"machine_learning","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"searchable_snapshots","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"security","minimum_index_version":"6.8.23","migration_status":"IN_PROGRESS","indices":[{"index":".security-6","version":"6.8.23"}]},{"feature_name":"tasks","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"transform","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"watcher","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]}],"migration_status":"IN_PROGRESS"}
+  ES7 security migration status: NO_MIGRATION_NEEDED
+{"features":[{"feature_name":"async_search","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"enrich","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"fleet","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"geoip","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[{"index":".geoip_databases","version":"7.17.29"}]},{"feature_name":"kibana","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"logstash_management","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"machine_learning","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"searchable_snapshots","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"security","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[{"index":".security-6-reindexed-for-8","version":"7.17.29"}]},{"feature_name":"tasks","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"transform","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"watcher","minimum_index_version":"7.17.29","migration_status":"NO_MIGRATION_NEEDED","indices":[]}],"migration_status":"NO_MIGRATION_NEEDED"}
+ES 7 security index: .security-6-reindexed-for-8
+
+Creating ES 7 security snapshot es7_security_20260824163457...
+{"snapshot":{"snapshot":"es7_security_20260824163457","uuid":"M02CuyZDSv-wIxXeZsQVwA","repository":"migration_repo","version_id":7172999,"version":"7.17.29","indices":[".security-6-reindexed-for-8"],"data_streams":[],"include_global_state":false,"state":"SUCCESS","start_time":"2026-08-24T16:35:01.474Z","start_time_in_millis":1787589301474,"end_time":"2026-08-24T16:35:01.674Z","end_time_in_millis":1787589301674,"duration_in_millis":200,"failures":[],"shards":{"total":1,"failed":0,"successful":1},"feature_states":[]}}
+
+Refreshing the shared snapshot repository on ES 8...
+{"acknowledged":true}
+
+Restoring the ES 7 security index into ES 8...
+{"snapshot":{"snapshot":"es7_security_20260824163457","indices":[".security-6-reindexed-for-8"],"shards":{"total":1,"failed":0,"successful":1}}}
+
+Migrating security on ES 8...
+Migrating the security feature on ES8...
+{"accepted":true,"features":[{"feature_name":"security"}]}
+  ES8 security migration status: IN_PROGRESS
+{"features":[{"feature_name":"async_search","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"enrich","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"ent_search","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"fleet","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"geoip","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"inference_plugin","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"kibana","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"logstash_management","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"machine_learning","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"searchable_snapshots","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"security","minimum_index_version":"7.17.29-8.0.0","migration_status":"IN_PROGRESS","indices":[{"index":".security-6-reindexed-for-8","version":"7.17.29-8.0.0"}]},{"feature_name":"synonyms","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"tasks","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"transform","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"watcher","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]}],"migration_status":"IN_PROGRESS"}
+  ES8 security migration status: NO_MIGRATION_NEEDED
+{"features":[{"feature_name":"async_search","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"enrich","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"ent_search","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"fleet","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"geoip","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"inference_plugin","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"kibana","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"logstash_management","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"machine_learning","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"searchable_snapshots","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"security","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[{"index":".security-6-reindexed-for-8-reindexed-for-9","version":"8.18.0"}]},{"feature_name":"synonyms","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"tasks","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"transform","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"watcher","minimum_index_version":"8.18.0","migration_status":"NO_MIGRATION_NEEDED","indices":[]}],"migration_status":"NO_MIGRATION_NEEDED"}
+
+Creating ES 8 security feature-state snapshot es8_security_20260824163457...
+{"snapshot":{"snapshot":"es8_security_20260824163457","uuid":"T-_FPAkhRaq2CnOteIrGPg","repository":"migration_repo","version_id":8525000,"version":"8.18.0","indices":[".security-6-reindexed-for-8-reindexed-for-9"],"data_streams":[],"include_global_state":false,"state":"SUCCESS","start_time":"2026-08-24T16:35:04.941Z","start_time_in_millis":1787589304941,"end_time":"2026-08-24T16:35:04.941Z","end_time_in_millis":1787589304941,"duration_in_millis":0,"failures":[],"shards":{"total":1,"failed":0,"successful":1},"feature_states":[{"feature_name":"security","indices":[".security-6-reindexed-for-8-reindexed-for-9"]}]}}
+
+Refreshing the shared snapshot repository on ES 9...
+{"acknowledged":true}
+
+Restoring the ES 8 security feature state into ES 9...
+{"snapshot":{"snapshot":"es8_security_20260824163457","indices":[".security-6-reindexed-for-8-reindexed-for-9"],"shards":{"total":1,"failed":0,"successful":1}}}
+
+Migrating security on ES 9...
+Migrating the security feature on ES9...
+{"accepted":true,"features":[{"feature_name":"security"}]}
+  ES9 security migration status: IN_PROGRESS
+{"features":[{"feature_name":"async_search","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"enrich","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"ent_search","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"fleet","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"geoip","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"inference_plugin","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"kibana","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"logstash_management","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"machine_learning","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"searchable_snapshots","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"security","minimum_index_version":"8.18.0-8.18.8","migration_status":"IN_PROGRESS","indices":[{"index":".security-6-reindexed-for-8-reindexed-for-9","version":"8.18.0-8.18.8"}]},{"feature_name":"synonyms","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"tasks","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"transform","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"watcher","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]}],"migration_status":"IN_PROGRESS"}
+  ES9 security migration status: NO_MIGRATION_NEEDED
+{"features":[{"feature_name":"async_search","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"enrich","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"ent_search","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"fleet","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"geoip","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"inference_plugin","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"kibana","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"logstash_management","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"machine_learning","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"searchable_snapshots","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"security","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[{"index":".security-6-reindexed-for-8-reindexed-for-9-reindexed-for-10","version":"9.2.3"}]},{"feature_name":"synonyms","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"tasks","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"transform","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]},{"feature_name":"watcher","minimum_index_version":"9.2.3","migration_status":"NO_MIGRATION_NEEDED","indices":[]}],"migration_status":"NO_MIGRATION_NEEDED"}
+
+Migration completed successfully.
+
+Validate a migrated user with:
+curl -sS -u %q %q
