@@ -1,672 +1,791 @@
 #!/usr/bin/env bash
 
-# Migrate the ES 6 native-realm security feature to ES 9
-# through temporary ES 7 and ES 8 clusters.
-#
-# Flow:
-#
-#   ES6
-#     .security-6
-#       |
-#       | snapshot
-#       v
-#   ES7
-#     restore .security-6
-#     migrate security
-#     snapshot migrated security index
-#       |
-#       v
-#   ES8
-#     restore ES7 security index
-#     migrate security
-#     snapshot security feature-state
-#       |
-#       v
-#   ES9
-#     restore security feature-state
-#     migrate security
-#
-# ES7 and ES8 must share the same snapshot repository path.
+set -uo pipefail
 
-set -Eeuo pipefail
+###############################################################################
+# Elasticsearch 6 -> Elasticsearch 9
+#
+# Usage:
+#   ./migrate-security-users.sh \
+#     "$ES6_USER" "$ES6_PASS" "$ES6_URL" \
+#     "$ES9_USER" "$ES9_PASS" "$ES9_URL"
+#
+# Requirements:
+#   - curl
+#   - jq
+#
+# Migration:
+#   1. Read custom roles from ES6 .security-6
+#   2. Create/update roles on ES9
+#   3. Read users from ES6 .security-6
+#   4. Skip known system/built-in users
+#   5. Create/update users on ES9
+#   6. Verify migrated roles/users
+#
+# IMPORTANT:
+#   Password hashes are NEVER printed to the log.
+###############################################################################
 
+SCRIPT_NAME="$(basename "$0")"
 
-usage() {
-  cat <<'EOF'
+###############################################################################
+# Colors
+###############################################################################
+
+if [[ -t 1 ]]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    CYAN='\033[0;36m'
+    BOLD='\033[1m'
+    NC='\033[0m'
+else
+    RED=''
+    GREEN=''
+    YELLOW=''
+    BLUE=''
+    CYAN=''
+    BOLD=''
+    NC=''
+fi
+
+###############################################################################
+# Logging
+###############################################################################
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $*"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $*"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $*"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $*" >&2
+}
+
+log_step() {
+    echo
+    echo -e "${BOLD}${CYAN}============================================================${NC}"
+    echo -e "${BOLD}${CYAN}$*${NC}"
+    echo -e "${BOLD}${CYAN}============================================================${NC}"
+}
+
+###############################################################################
+# Arguments
+###############################################################################
+
+if [[ $# -ne 6 ]]; then
+    cat >&2 <<EOF
+
 Usage:
-  ./migrate-security-users.sh \
-    ES6_USER ES6_PASS ES6_URL \
-    ES9_USER ES9_PASS ES9_URL
+  $SCRIPT_NAME \\
+    "\$ES6_USER" "\$ES6_PASS" "\$ES6_URL" \\
+    "\$ES9_USER" "\$ES9_PASS" "\$ES9_URL"
 
-Required arguments:
-  ES6_USER  ES 6 administrator username
-  ES6_PASS  ES 6 administrator password
-  ES6_URL   ES 6 endpoint, e.g. http://localhost:9206
+Example:
+  $SCRIPT_NAME \\
+    "\$ES6_USER" "\$ES6_PASS" "\$ES6_URL" \\
+    "\$ES9_USER" "\$ES9_PASS" "\$ES9_URL"
 
-  ES9_USER  ES 9 administrator username
-  ES9_PASS  ES 9 administrator password
-  ES9_URL   ES 9 endpoint, e.g. http://localhost:9209
-
-Optional environment variables:
-  ES7_URL             ES 7 endpoint
-                      default: http://localhost:9207
-
-  ES8_URL             ES 8 endpoint
-                      default: http://localhost:9208
-
-  SNAPSHOT_REPOSITORY repository name
-                      default: migration_repo
-
-  SNAPSHOT_LOCATION   snapshot repository path
-                      default: /snapshots
-
-  MIGRATION_RUN_ID    snapshot suffix
-                      default: UTC timestamp
-
-  MIGRATION_TIMEOUT   migration polling timeout in seconds
-                      default: 300
-
-  CURL_MAX_TIME       maximum duration of normal curl request
-                      default: 60
 EOF
-}
-
-
-if (( $# == 1 )) && [[ "$1" == "--help" || "$1" == "-h" ]]; then
-  usage
-  exit 0
-fi
-
-
-if (( $# != 6 )); then
-  usage >&2
-  exit 64
-fi
-
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-ES6_USER=$1
-ES6_PASS=$2
-ES6_URL=${3%/}
-
-ES9_USER=$4
-ES9_PASS=$5
-ES9_URL=${6%/}
-
-ES7_URL=${ES7_URL:-http://localhost:9207}
-ES8_URL=${ES8_URL:-http://localhost:9208}
-
-ES7_URL=${ES7_URL%/}
-ES8_URL=${ES8_URL%/}
-
-SNAPSHOT_REPOSITORY=${SNAPSHOT_REPOSITORY:-migration_repo}
-SNAPSHOT_LOCATION=${SNAPSHOT_LOCATION:-/snapshots}
-
-MIGRATION_RUN_ID=${MIGRATION_RUN_ID:-$(date -u +%Y%m%d%H%M%S)}
-
-MIGRATION_TIMEOUT=${MIGRATION_TIMEOUT:-300}
-CURL_MAX_TIME=${CURL_MAX_TIME:-60}
-
-
-ES6_SNAPSHOT="es6_security_${MIGRATION_RUN_ID}"
-ES7_SNAPSHOT="es7_security_${MIGRATION_RUN_ID}"
-ES8_SNAPSHOT="es8_security_${MIGRATION_RUN_ID}"
-
-
-# ---------------------------------------------------------------------------
-# HTTP helpers
-# ---------------------------------------------------------------------------
-
-curl_json() {
-  curl \
-    --fail-with-body \
-    --silent \
-    --show-error \
-    --connect-timeout 10 \
-    --max-time "$CURL_MAX_TIME" \
-    "$@"
-}
-
-
-request() {
-  local description=$1
-  local response
-
-  shift
-
-  if ! response=$(curl_json "$@"); then
-    printf '\nERROR: %s failed.\n' "$description" >&2
-    printf 'Elasticsearch response:\n%s\n' "$response" >&2
-    return 1
-  fi
-
-  printf '%s\n' "$response"
-}
-
-
-# ---------------------------------------------------------------------------
-# Cluster checks
-# ---------------------------------------------------------------------------
-
-require_cluster() {
-  local label=$1
-  local url=$2
-  local credentials=${3:-}
-  local response
-
-  if [[ -n "$credentials" ]]; then
-    if ! response=$(curl_json -u "$credentials" "$url"); then
-      printf '\nERROR: connection or authentication failed for %s (%s).\n' \
-        "$label" "$url" >&2
-      printf '%s\n' "$response" >&2
-      return 1
-    fi
-  else
-    if ! response=$(curl_json "$url"); then
-      printf '\nERROR: connection failed for %s (%s).\n' \
-        "$label" "$url" >&2
-      printf '%s\n' "$response" >&2
-      return 1
-    fi
-  fi
-
-  if [[ "$response" != *'"cluster_name"'* ]]; then
-    printf 'ERROR: %s did not return an Elasticsearch root response.\n' \
-      "$label" >&2
     exit 1
-  fi
-
-  printf '%s\n' "$response"
-}
-
-
-# ---------------------------------------------------------------------------
-# Snapshot repository
-# ---------------------------------------------------------------------------
-
-register_repository() {
-  local url=$1
-  local credentials=${2:-}
-  local args=()
-
-  [[ -n "$credentials" ]] && args=(-u "$credentials")
-
-  request "registering snapshot repository on $url" \
-    "${args[@]}" \
-    -X PUT \
-    "$url/_snapshot/$SNAPSHOT_REPOSITORY" \
-    -H 'Content-Type: application/json' \
-    -d "{
-      \"type\": \"fs\",
-      \"settings\": {
-        \"location\": \"$SNAPSHOT_LOCATION\"
-      }
-    }"
-}
-
-
-unregister_repository() {
-  local url=$1
-  local credentials=${2:-}
-  local args=()
-  local response
-
-  [[ -n "$credentials" ]] && args=(-u "$credentials")
-
-  if ! response=$(curl_json \
-      "${args[@]}" \
-      -X DELETE \
-      "$url/_snapshot/$SNAPSHOT_REPOSITORY" \
-      2>&1); then
-
-    if [[ "$response" != *'repository_missing_exception'* ]]; then
-      printf '\nERROR: unregistering repository on %s failed.\n' \
-        "$url" >&2
-      printf '%s\n' "$response" >&2
-      return 1
-    fi
-
-    return 0
-  fi
-
-  printf '%s\n' "$response"
-}
-
-
-refresh_repository() {
-  local url=$1
-  local credentials=${2:-}
-
-  unregister_repository "$url" "$credentials"
-  register_repository "$url" "$credentials"
-}
-
-
-# ---------------------------------------------------------------------------
-# Migration API helpers
-# ---------------------------------------------------------------------------
-
-response=$(curl -sS "http://localhost:9207/_migration/system_features?pretty")
-
-security_status_from_response() {
-  local response=$1
-
-  printf '%s\n' "$response" |
-    sed -n '/"feature_name"[[:space:]]*:[[:space:]]*"security"/,/^[[:space:]]*},/p' |
-    sed -n 's/.*"migration_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
-    head -n 1
-}
-
-security_status_from_response "$response"
-
-security_migration_status() {
-  local url=$1
-  local credentials=${2:-}
-  local response
-
-  if [[ -n "$credentials" ]]; then
-    response=$(curl_json \
-      -u "$credentials" \
-      "$url/_migration/system_features")
-  else
-    response=$(curl_json \
-      "$url/_migration/system_features")
-  fi
-
-  security_status_from_response "$response"
-}
-
-
-security_index_from_response() {
-  local response=$1
-
-  printf '%s\n' "$response" |
-    sed -n '/"feature_name"[[:space:]]*:[[:space:]]*"security"/,/^[[:space:]]*},/p' |
-    sed -n 's/.*"index"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
-    head -n 1
-}
-
-
-security_index() {
-  local url=$1
-  local credentials=${2:-}
-  local response
-
-  if [[ -n "$credentials" ]]; then
-    response=$(curl_json \
-      -u "$credentials" \
-      "$url/_migration/system_features")
-  else
-    response=$(curl_json \
-      "$url/_migration/system_features")
-  fi
-
-  security_index_from_response "$response"
-}
-
-
-# ---------------------------------------------------------------------------
-# Start security migration
-#
-# Return codes:
-#
-#   0 = migration started / accepted
-#   2 = Elasticsearch says there is nothing to migrate
-#   1+ = actual request failure
-# ---------------------------------------------------------------------------
-
-start_security_migration() {
-  local label=$1
-  local url=$2
-  local credentials=${3:-}
-
-  local args=()
-  local response
-  local exit_code
-
-  [[ -n "$credentials" ]] && args=(-u "$credentials")
-
-  set +e
-
-  response=$(
-    curl \
-      --fail-with-body \
-      --silent \
-      --show-error \
-      --connect-timeout 10 \
-      --max-time 15 \
-      "${args[@]}" \
-      -X POST \
-      "$url/_migration/system_features" \
-      2>&1
-  )
-
-  exit_code=$?
-
-  set -e
-
-  if (( exit_code == 0 )); then
-    printf '%s\n' "$response"
-
-    if [[ "$response" == *'"accepted":false'* ]] &&
-       [[ "$response" == *'No system indices require migration'* ]]; then
-      return 2
-    fi
-
-    return 0
-  fi
-
-  # curl timeout:
-  # Elasticsearch may have accepted/completed the migration even though
-  # the HTTP request itself timed out.
-  if (( exit_code == 28 )); then
-    printf '  %s migration trigger timed out; checking migration status.\n' \
-      "$label"
-    return 0
-  fi
-
-  printf '\nERROR: starting %s security migration failed.\n' \
-    "$label" >&2
-  printf '%s\n' "$response" >&2
-
-  return "$exit_code"
-}
-
-
-wait_for_security_migration() {
-  local label=$1
-  local url=$2
-  local credentials=${3:-}
-
-  local started=$SECONDS
-  local response
-  local status
-  local previous_status=''
-
-  while (( SECONDS - started < MIGRATION_TIMEOUT )); do
-
-    if [[ -n "$credentials" ]]; then
-      response=$(curl_json \
-        -u "$credentials" \
-        "$url/_migration/system_features")
-    else
-      response=$(curl_json \
-        "$url/_migration/system_features")
-    fi
-
-    status=$(security_status_from_response "$response")
-
-    if [[ "$status" != "$previous_status" ]]; then
-      printf '  %s security migration status: %s\n' \
-        "$label" \
-        "${status:-not reported}"
-
-      printf '%s\n' "$response"
-
-      previous_status=$status
-    fi
-
-    case "$status" in
-      NO_MIGRATION_NEEDED)
-        return 0
-        ;;
-
-      MIGRATION_NEEDED)
-        sleep 2
-        ;;
-
-      *)
-        sleep 2
-        ;;
-    esac
-  done
-
-  printf '\nERROR: %s security migration did not finish within %s seconds.\n' \
-    "$label" "$MIGRATION_TIMEOUT" >&2
-
-  printf 'Last response:\n%s\n' "$response" >&2
-
-  return 1
-}
-
-
-migrate_security() {
-  local label=$1
-  local url=$2
-  local credentials=${3:-}
-
-  local status
-  local result
-
-  status=$(security_migration_status "$url" "$credentials")
-
-  case "$status" in
-
-    NO_MIGRATION_NEEDED)
-      printf '%s security migration is not needed; continuing.\n' "$label"
-      return 0
-      ;;
-
-    MIGRATION_NEEDED)
-      printf 'Migrating the security feature on %s...\n' "$label"
-
-      set +e
-      start_security_migration "$label" "$url" "$credentials"
-      result=$?
-      set -e
-
-      case "$result" in
-        0)
-          wait_for_security_migration "$label" "$url" "$credentials"
-          ;;
-
-        2)
-          printf '%s has no system indices requiring migration; continuing.\n' \
-            "$label"
-          ;;
-
-        *)
-          printf 'ERROR: %s security migration failed.\n' "$label" >&2
-          return "$result"
-          ;;
-      esac
-      ;;
-
-    *)
-      printf 'ERROR: unexpected %s security migration status: %s\n' \
-        "$label" \
-        "${status:-not reported}" >&2
-      return 1
-      ;;
-  esac
-}
-
-
-# ---------------------------------------------------------------------------
-# Connectivity
-# ---------------------------------------------------------------------------
-
-printf 'Checking cluster connectivity...\n'
-
-require_cluster ES6 "$ES6_URL" "$ES6_USER:$ES6_PASS"
-require_cluster ES7 "$ES7_URL"
-require_cluster ES8 "$ES8_URL"
-require_cluster ES9 "$ES9_URL" "$ES9_USER:$ES9_PASS"
-
-
-# ---------------------------------------------------------------------------
-# ES6
-# ---------------------------------------------------------------------------
-
-printf '\nRegistering the shared snapshot repository on ES 6...\n'
-
-register_repository \
-  "$ES6_URL" \
-  "$ES6_USER:$ES6_PASS"
-
-
-printf '\nCreating ES 6 security snapshot %s...\n' \
-  "$ES6_SNAPSHOT"
-
-request \
-  'creating the ES 6 security snapshot' \
-  -u "$ES6_USER:$ES6_PASS" \
-  -X PUT \
-  "$ES6_URL/_snapshot/$SNAPSHOT_REPOSITORY/$ES6_SNAPSHOT?wait_for_completion=true" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "indices": ".security-6",
-    "include_global_state": false
-  }'
-
-
-# ---------------------------------------------------------------------------
-# ES7
-# ---------------------------------------------------------------------------
-
-printf '\nRefreshing the shared snapshot repository on ES 7...\n'
-
-refresh_repository "$ES7_URL"
-
-
-printf '\nRestoring the ES 6 security index into ES 7...\n'
-
-request \
-  'restoring the ES 6 security snapshot into ES 7' \
-  -X POST \
-  "$ES7_URL/_snapshot/$SNAPSHOT_REPOSITORY/$ES6_SNAPSHOT/_restore?wait_for_completion=true" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "indices": ".security-6",
-    "include_global_state": false
-  }'
-
-
-printf '\nMigrating security on ES 7...\n'
-
-migrate_security ES7 "$ES7_URL"
-
-
-# Get the actual security index after migration.
-ES7_SECURITY_INDEX=$(security_index "$ES7_URL")
-
-if [[ -z "$ES7_SECURITY_INDEX" ]]; then
-  printf '\nERROR: ES 7 did not report a security index after migration.\n' >&2
-
-  printf 'Migration API response:\n' >&2
-  curl_json "$ES7_URL/_migration/system_features?pretty" >&2
-
-  exit 1
 fi
 
-printf 'ES 7 security index: %s\n' \
-  "$ES7_SECURITY_INDEX"
+ES6_USER="$1"
+ES6_PASS="$2"
+ES6_URL="${3%/}"
 
+ES9_USER="$4"
+ES9_PASS="$5"
+ES9_URL="${6%/}"
 
-printf '\nCreating ES 7 security snapshot %s...\n' \
-  "$ES7_SNAPSHOT"
+###############################################################################
+# Dependencies
+###############################################################################
 
-request \
-  'creating the ES 7 security snapshot' \
-  -X PUT \
-  "$ES7_URL/_snapshot/$SNAPSHOT_REPOSITORY/$ES7_SNAPSHOT?wait_for_completion=true" \
-  -H 'Content-Type: application/json' \
-  -d "{
-    \"indices\": \"$ES7_SECURITY_INDEX\",
-    \"include_global_state\": false
-  }"
+for cmd in curl jq; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        log_error "Required command not found: $cmd"
+        exit 1
+    fi
+done
 
+###############################################################################
+# Temporary files
+###############################################################################
 
-# ---------------------------------------------------------------------------
-# ES8
-# ---------------------------------------------------------------------------
+TMP_DIR="$(mktemp -d)"
 
-printf '\nRefreshing the shared snapshot repository on ES 8...\n'
+cleanup() {
+    rm -rf "$TMP_DIR"
+}
 
-refresh_repository "$ES8_URL"
+trap cleanup EXIT
 
+chmod 700 "$TMP_DIR"
 
-printf '\nRestoring the ES 7 security index into ES 8...\n'
+ES6_ROLES_JSON="$TMP_DIR/es6_roles.json"
+ES6_USERS_JSON="$TMP_DIR/es6_users.json"
 
-request \
-  'restoring the ES 7 security snapshot into ES 8' \
-  -X POST \
-  "$ES8_URL/_snapshot/$SNAPSHOT_REPOSITORY/$ES7_SNAPSHOT/_restore?wait_for_completion=true" \
-  -H 'Content-Type: application/json' \
-  -d "{
-    \"indices\": \"$ES7_SECURITY_INDEX\",
-    \"include_global_state\": false
-  }"
+###############################################################################
+# Counters
+###############################################################################
 
+ROLES_TOTAL=0
+ROLES_SUCCESS=0
+ROLES_FAILED=0
 
-printf '\nMigrating security on ES 8...\n'
+USERS_TOTAL=0
+USERS_SUCCESS=0
+USERS_FAILED=0
+USERS_SKIPPED=0
 
-migrate_security ES8 "$ES8_URL"
+###############################################################################
+# Known system / built-in users
+#
+# These users must NOT be migrated from ES6.
+###############################################################################
 
+is_system_user() {
+    local username="$1"
 
-printf '\nCreating ES 8 security feature-state snapshot %s...\n' \
-  "$ES8_SNAPSHOT"
+    case "$username" in
+        elastic)
+            return 0
+            ;;
+        kibana)
+            return 0
+            ;;
+        kibana_system)
+            return 0
+            ;;
+        logstash_system)
+            return 0
+            ;;
+        beats_system)
+            return 0
+            ;;
+        apm_system)
+            return 0
+            ;;
+        remote_monitoring_user)
+            return 0
+            ;;
+        _xpack)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
 
-request \
-  'creating the ES 8 security feature-state snapshot' \
-  -X PUT \
-  "$ES8_URL/_snapshot/$SNAPSHOT_REPOSITORY/$ES8_SNAPSHOT?wait_for_completion=true" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "feature_states": [
-      "security"
-    ],
-    "include_global_state": false
-  }'
+###############################################################################
+# HTTP helper
+#
+# Usage:
+#   http_request METHOD URL USER PASS BODY OUTPUT_FILE
+#
+# Returns HTTP status code.
+###############################################################################
 
+http_request() {
+    local method="$1"
+    local url="$2"
+    local user="$3"
+    local pass="$4"
+    local body="$5"
+    local output="$6"
 
-# ---------------------------------------------------------------------------
-# ES9
-# ---------------------------------------------------------------------------
+    local status
 
-printf '\nRefreshing the shared snapshot repository on ES 9...\n'
+    if [[ -n "$body" ]]; then
+        status="$(
+            curl \
+                -sS \
+                -u "$user:$pass" \
+                -X "$method" \
+                -H 'Content-Type: application/json' \
+                -o "$output" \
+                -w '%{http_code}' \
+                "$url" \
+                -d "$body"
+        )"
+    else
+        status="$(
+            curl \
+                -sS \
+                -u "$user:$pass" \
+                -X "$method" \
+                -o "$output" \
+                -w '%{http_code}' \
+                "$url"
+        )"
+    fi
 
-refresh_repository \
-  "$ES9_URL" \
-  "$ES9_USER:$ES9_PASS"
+    echo "$status"
+}
 
+###############################################################################
+# Test ES connections
+###############################################################################
 
-printf '\nRestoring the ES 8 security feature state into ES 9...\n'
+log_step "1. CHECK ELASTICSEARCH CONNECTIONS"
 
-request \
-  'restoring the ES 8 security feature state into ES 9' \
-  -u "$ES9_USER:$ES9_PASS" \
-  -X POST \
-  "$ES9_URL/_snapshot/$SNAPSHOT_REPOSITORY/$ES8_SNAPSHOT/_restore?wait_for_completion=true" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "indices": "-*",
-    "feature_states": [
-      "security"
-    ],
-    "include_global_state": false
-  }'
+log_info "Checking Elasticsearch 6..."
+ES6_TEST_FILE="$TMP_DIR/es6_test.json"
 
+ES6_STATUS="$(
+    curl \
+        -sS \
+        -u "$ES6_USER:$ES6_PASS" \
+        -o "$ES6_TEST_FILE" \
+        -w '%{http_code}' \
+        "$ES6_URL/"
+)"
 
-printf '\nMigrating security on ES 9...\n'
+if [[ "$ES6_STATUS" != "200" ]]; then
+    log_error "Cannot connect/authenticate to ES6."
+    log_error "HTTP status: $ES6_STATUS"
+    cat "$ES6_TEST_FILE" >&2
+    exit 1
+fi
 
-migrate_security \
-  ES9 \
-  "$ES9_URL" \
-  "$ES9_USER:$ES9_PASS"
+ES6_VERSION="$(jq -r '.version.number // "unknown"' "$ES6_TEST_FILE")"
 
+log_success "ES6 connection OK - version: $ES6_VERSION"
 
-# ---------------------------------------------------------------------------
-# Done
-# ---------------------------------------------------------------------------
+log_info "Checking Elasticsearch 9..."
+ES9_TEST_FILE="$TMP_DIR/es9_test.json"
 
-printf '\nMigration completed successfully.\n'
+ES9_STATUS="$(
+    curl \
+        -sS \
+        -u "$ES9_USER:$ES9_PASS" \
+        -o "$ES9_TEST_FILE" \
+        -w '%{http_code}' \
+        "$ES9_URL/"
+)"
 
-printf '\nValidate a migrated user with:\n'
+if [[ "$ES9_STATUS" != "200" ]]; then
+    log_error "Cannot connect/authenticate to ES9."
+    log_error "HTTP status: $ES9_STATUS"
+    cat "$ES9_TEST_FILE" >&2
+    exit 1
+fi
 
-printf 'curl -sS -u %%q %%q\n' \
-  '<username>:<password>' \
-  "$ES9_URL/_security/_authenticate?pretty"
+ES9_VERSION="$(jq -r '.version.number // "unknown"' "$ES9_TEST_FILE")"
+
+log_success "ES9 connection OK - version: $ES9_VERSION"
+
+###############################################################################
+# Fetch roles from ES6
+###############################################################################
+
+log_step "2. EXTRACT CUSTOM ROLES FROM ES6"
+
+log_info "Reading roles from: $ES6_URL/.security-6"
+
+ES6_ROLES_STATUS="$(
+    curl \
+        -sS \
+        -u "$ES6_USER:$ES6_PASS" \
+        -H 'Content-Type: application/json' \
+        -o "$ES6_ROLES_JSON" \
+        -w '%{http_code}' \
+        "$ES6_URL/.security-6/_search" \
+        -d '{
+            "size": 10000,
+            "query": {
+                "term": {
+                    "type": "role"
+                }
+            }
+        }'
+)"
+
+if [[ "$ES6_ROLES_STATUS" != "200" ]]; then
+    log_error "Failed to read roles from ES6."
+    log_error "HTTP status: $ES6_ROLES_STATUS"
+    cat "$ES6_ROLES_JSON" >&2
+    exit 1
+fi
+
+ROLES_TOTAL="$(
+    jq -r '.hits.hits | length' "$ES6_ROLES_JSON"
+)"
+
+log_success "Found $ROLES_TOTAL role(s) in ES6."
+
+if [[ "$ROLES_TOTAL" -eq 0 ]]; then
+    log_warn "No roles found. Continuing with user migration."
+fi
+
+###############################################################################
+# Migrate roles
+###############################################################################
+
+log_step "3. MIGRATE ROLES ES6 -> ES9"
+
+if [[ "$ROLES_TOTAL" -gt 0 ]]; then
+
+    while IFS= read -r role_json; do
+
+        ROLE_ID="$(jq -r '._id' <<< "$role_json")"
+
+        # ES6 security documents use IDs such as:
+        #   role-reader
+        #   role-writer
+        #   role-test_admin
+        #
+        # The actual role name is everything after "role-".
+        ROLE_NAME="${ROLE_ID#role-}"
+
+        ROLE_BODY="$(
+            jq -c '._source |
+                {
+                    cluster,
+                    indices,
+                    applications,
+                    run_as,
+                    metadata
+                }' <<< "$role_json"
+        )"
+
+        log_info "Migrating role: $ROLE_NAME"
+
+        RESPONSE_FILE="$TMP_DIR/role_response.json"
+
+        HTTP_STATUS="$(
+            http_request \
+                "PUT" \
+                "$ES9_URL/_security/role/$ROLE_NAME" \
+                "$ES9_USER" \
+                "$ES9_PASS" \
+                "$ROLE_BODY" \
+                "$RESPONSE_FILE"
+        )"
+
+        if [[ "$HTTP_STATUS" =~ ^2[0-9][0-9]$ ]]; then
+            ROLES_SUCCESS=$((ROLES_SUCCESS + 1))
+
+            log_success \
+                "Role '$ROLE_NAME' migrated successfully."
+
+        else
+            ROLES_FAILED=$((ROLES_FAILED + 1))
+
+            log_error \
+                "Failed to migrate role '$ROLE_NAME' (HTTP $HTTP_STATUS)."
+
+            if jq empty "$RESPONSE_FILE" >/dev/null 2>&1; then
+                jq '.' "$RESPONSE_FILE" >&2
+            else
+                cat "$RESPONSE_FILE" >&2
+            fi
+        fi
+
+    done < <(
+        jq -c '.hits.hits[]' "$ES6_ROLES_JSON"
+    )
+fi
+
+###############################################################################
+# Stop if role migration failed
+#
+# We don't want to create users referencing missing roles.
+###############################################################################
+
+if [[ "$ROLES_FAILED" -gt 0 ]]; then
+    log_error \
+        "$ROLES_FAILED role(s) failed to migrate."
+
+    log_error \
+        "User migration will NOT continue because users may reference missing roles."
+
+    exit 1
+fi
+
+###############################################################################
+# Fetch users from ES6
+###############################################################################
+
+log_step "4. EXTRACT CUSTOM USERS FROM ES6"
+
+log_info "Reading users from: $ES6_URL/.security-6"
+
+ES6_USERS_STATUS="$(
+    curl \
+        -sS \
+        -u "$ES6_USER:$ES6_PASS" \
+        -H 'Content-Type: application/json' \
+        -o "$ES6_USERS_JSON" \
+        -w '%{http_code}' \
+        "$ES6_URL/.security-6/_search" \
+        -d '{
+            "size": 10000,
+            "query": {
+                "term": {
+                    "type": "user"
+                }
+            }
+        }'
+)"
+
+if [[ "$ES6_USERS_STATUS" != "200" ]]; then
+    log_error "Failed to read users from ES6."
+    log_error "HTTP status: $ES6_USERS_STATUS"
+    cat "$ES6_USERS_JSON" >&2
+    exit 1
+fi
+
+USERS_TOTAL="$(
+    jq -r '.hits.hits | length' "$ES6_USERS_JSON"
+)"
+
+log_success "Found $USERS_TOTAL user document(s) in ES6."
+
+###############################################################################
+# Migrate users
+###############################################################################
+
+log_step "5. MIGRATE CUSTOM USERS ES6 -> ES9"
+
+if [[ "$USERS_TOTAL" -gt 0 ]]; then
+
+    while IFS= read -r user_json; do
+
+        USERNAME="$(jq -r '._source.username // empty' <<< "$user_json")"
+
+        if [[ -z "$USERNAME" ]]; then
+            log_warn "Skipping user document without username."
+            USERS_SKIPPED=$((USERS_SKIPPED + 1))
+            continue
+        fi
+
+        #######################################################################
+        # Skip system users
+        #######################################################################
+
+        if is_system_user "$USERNAME"; then
+            log_warn \
+                "Skipping system/built-in user: $USERNAME"
+
+            USERS_SKIPPED=$((USERS_SKIPPED + 1))
+            continue
+        fi
+
+        #######################################################################
+        # Extract user fields
+        #######################################################################
+
+        PASSWORD_HASH="$(jq -r '._source.password // empty' <<< "$user_json")"
+
+        ROLES_JSON="$(
+            jq -c '._source.roles // []' <<< "$user_json"
+        )"
+
+        FULL_NAME_JSON="$(
+            jq -c '._source.full_name // null' <<< "$user_json"
+        )"
+
+        EMAIL_JSON="$(
+            jq -c '._source.email // null' <<< "$user_json"
+        )"
+
+        METADATA_JSON="$(
+            jq -c '._source.metadata // {}' <<< "$user_json"
+        )"
+
+        ENABLED="$(
+            jq -r '._source.enabled // true' <<< "$user_json"
+        )"
+
+        #######################################################################
+        # Validate password hash
+        #######################################################################
+
+        if [[ -z "$PASSWORD_HASH" ]]; then
+            log_error \
+                "User '$USERNAME' has no password hash. Skipping."
+
+            USERS_FAILED=$((USERS_FAILED + 1))
+            continue
+        fi
+
+        #######################################################################
+        # Show roles but NEVER show password hash
+        #######################################################################
+
+        ROLE_LIST="$(
+            jq -r 'join(", ")' <<< "$ROLES_JSON"
+        )"
+
+        log_info \
+            "Migrating user: $USERNAME"
+
+        log_info \
+            "  roles: [$ROLE_LIST]"
+
+        log_info \
+            "  enabled: $ENABLED"
+
+        #######################################################################
+        # Build ES9 user API body
+        #
+        # password_hash is intentionally used instead of password.
+        #
+        # This allows the existing ES6 password hash to be migrated without
+        # knowing the plaintext password.
+        #######################################################################
+
+        USER_BODY="$(
+            jq -cn \
+                --arg password_hash "$PASSWORD_HASH" \
+                --argjson roles "$ROLES_JSON" \
+                --argjson full_name "$FULL_NAME_JSON" \
+                --argjson email "$EMAIL_JSON" \
+                --argjson metadata "$METADATA_JSON" \
+                --argjson enabled "$ENABLED" \
+                '{
+                    password_hash: $password_hash,
+                    roles: $roles,
+                    full_name: $full_name,
+                    email: $email,
+                    metadata: $metadata,
+                    enabled: $enabled
+                }'
+        )"
+
+        #######################################################################
+        # Create/update user on ES9
+        #######################################################################
+
+        RESPONSE_FILE="$TMP_DIR/user_response.json"
+
+        HTTP_STATUS="$(
+            http_request \
+                "PUT" \
+                "$ES9_URL/_security/user/$USERNAME" \
+                "$ES9_USER" \
+                "$ES9_PASS" \
+                "$USER_BODY" \
+                "$RESPONSE_FILE"
+        )"
+
+        if [[ "$HTTP_STATUS" =~ ^2[0-9][0-9]$ ]]; then
+
+            USERS_SUCCESS=$((USERS_SUCCESS + 1))
+
+            CREATED="$(
+                jq -r '.created // "unknown"' "$RESPONSE_FILE" 2>/dev/null
+            )"
+
+            if [[ "$CREATED" == "true" ]]; then
+                log_success \
+                    "User '$USERNAME' CREATED successfully."
+            elif [[ "$CREATED" == "false" ]]; then
+                log_success \
+                    "User '$USERNAME' UPDATED successfully."
+            else
+                log_success \
+                    "User '$USERNAME' migrated successfully."
+            fi
+
+        else
+
+            USERS_FAILED=$((USERS_FAILED + 1))
+
+            log_error \
+                "Failed to migrate user '$USERNAME' (HTTP $HTTP_STATUS)."
+
+            if jq empty "$RESPONSE_FILE" >/dev/null 2>&1; then
+                jq '.' "$RESPONSE_FILE" >&2
+            else
+                cat "$RESPONSE_FILE" >&2
+            fi
+
+        fi
+
+    done < <(
+        jq -c '.hits.hits[]' "$ES6_USERS_JSON"
+    )
+fi
+
+###############################################################################
+# Verification
+###############################################################################
+
+log_step "6. VERIFY MIGRATED ROLES"
+
+VERIFY_ROLE_SUCCESS=0
+VERIFY_ROLE_FAILED=0
+
+if [[ "$ROLES_TOTAL" -gt 0 ]]; then
+
+    while IFS= read -r role_json; do
+
+        ROLE_ID="$(jq -r '._id' <<< "$role_json")"
+        ROLE_NAME="${ROLE_ID#role-}"
+
+        RESPONSE_FILE="$TMP_DIR/verify_role.json"
+
+        HTTP_STATUS="$(
+            curl \
+                -sS \
+                -u "$ES9_USER:$ES9_PASS" \
+                -o "$RESPONSE_FILE" \
+                -w '%{http_code}' \
+                "$ES9_URL/_security/role/$ROLE_NAME"
+        )"
+
+        if [[ "$HTTP_STATUS" == "200" ]]; then
+
+            if jq -e --arg role "$ROLE_NAME" \
+                'has($role)' "$RESPONSE_FILE" >/dev/null 2>&1; then
+
+                VERIFY_ROLE_SUCCESS=$((VERIFY_ROLE_SUCCESS + 1))
+
+                log_success \
+                    "Verified role: $ROLE_NAME"
+
+            else
+
+                VERIFY_ROLE_FAILED=$((VERIFY_ROLE_FAILED + 1))
+
+                log_error \
+                    "Role '$ROLE_NAME' returned HTTP 200 but was not found in response."
+            fi
+
+        else
+
+            VERIFY_ROLE_FAILED=$((VERIFY_ROLE_FAILED + 1))
+
+            log_error \
+                "Cannot verify role '$ROLE_NAME' (HTTP $HTTP_STATUS)."
+
+        fi
+
+    done < <(
+        jq -c '.hits.hits[]' "$ES6_ROLES_JSON"
+    )
+fi
+
+###############################################################################
+# Verify users
+###############################################################################
+
+log_step "7. VERIFY MIGRATED USERS"
+
+VERIFY_USER_SUCCESS=0
+VERIFY_USER_FAILED=0
+
+if [[ "$USERS_TOTAL" -gt 0 ]]; then
+
+    while IFS= read -r user_json; do
+
+        USERNAME="$(jq -r '._source.username // empty' <<< "$user_json")"
+
+        if [[ -z "$USERNAME" ]]; then
+            continue
+        fi
+
+        if is_system_user "$USERNAME"; then
+            continue
+        fi
+
+        RESPONSE_FILE="$TMP_DIR/verify_user.json"
+
+        HTTP_STATUS="$(
+            curl \
+                -sS \
+                -u "$ES9_USER:$ES9_PASS" \
+                -o "$RESPONSE_FILE" \
+                -w '%{http_code}' \
+                "$ES9_URL/_security/user/$USERNAME"
+        )"
+
+        if [[ "$HTTP_STATUS" == "200" ]]; then
+
+            ES9_USERNAME="$(
+                jq -r --arg u "$USERNAME" '.[$u].username // empty' \
+                    "$RESPONSE_FILE"
+            )"
+
+            if [[ "$ES9_USERNAME" == "$USERNAME" ]]; then
+
+                VERIFY_USER_SUCCESS=$((VERIFY_USER_SUCCESS + 1))
+
+                log_success \
+                    "Verified user: $USERNAME"
+
+            else
+
+                VERIFY_USER_FAILED=$((VERIFY_USER_FAILED + 1))
+
+                log_error \
+                    "User '$USERNAME' verification failed."
+
+            fi
+
+        else
+
+            VERIFY_USER_FAILED=$((VERIFY_USER_FAILED + 1))
+
+            log_error \
+                "Cannot verify user '$USERNAME' (HTTP $HTTP_STATUS)."
+
+        fi
+
+    done < <(
+        jq -c '.hits.hits[]' "$ES6_USERS_JSON"
+    )
+fi
+
+###############################################################################
+# Final summary
+###############################################################################
+
+log_step "8. MIGRATION SUMMARY"
+
+echo
+echo -e "${BOLD}Roles${NC}"
+echo "  Found:       $ROLES_TOTAL"
+echo "  Migrated:    $ROLES_SUCCESS"
+echo "  Failed:      $ROLES_FAILED"
+echo "  Verified:    $VERIFY_ROLE_SUCCESS"
+echo "  Verify fail: $VERIFY_ROLE_FAILED"
+
+echo
+echo -e "${BOLD}Users${NC}"
+echo "  Found:       $USERS_TOTAL"
+echo "  Migrated:    $USERS_SUCCESS"
+echo "  Failed:      $USERS_FAILED"
+echo "  Skipped:     $USERS_SKIPPED"
+echo "  Verified:    $VERIFY_USER_SUCCESS"
+echo "  Verify fail: $VERIFY_USER_FAILED"
+
+echo
+
+###############################################################################
+# Final status
+###############################################################################
+
+if [[ "$ROLES_FAILED" -gt 0 ||
+      "$USERS_FAILED" -gt 0 ||
+      "$VERIFY_ROLE_FAILED" -gt 0 ||
+      "$VERIFY_USER_FAILED" -gt 0 ]]; then
+
+    log_error "Migration completed with errors."
+    exit 1
+fi
+
+log_success "Migration completed successfully."
+exit 0
