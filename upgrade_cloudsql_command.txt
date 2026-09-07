@@ -1,0 +1,119 @@
+PS C:\Users\My PC\workspaces\bug_simulate> gcloud sql operations list `
+>>   --instance=cloudsql-13 `
+>>   --project=netflixauth-442114
+NAME                                  TYPE           START                          END                            ERROR  STATUS
+566829de-f97b-49f2-b986-2bb10000002b  BACKUP_VOLUME  2026-09-07T15:27:25.187+00:00  2026-09-07T15:27:39.857+00:00  -      DONE
+53fdf3f5-3186-4ad7-985b-20c20000002b  CREATE         2026-09-07T15:23:20.248+00:00  2026-09-07T15:27:43.461+00:00  -      DONE
+
+PS C:\Users\My PC\workspaces\bug_simulate> gcloud sql instances patch cloudsql-13 `
+>>   --database-version=POSTGRES_16 `
+>>   --project=netflixauth-442114 `
+>>   --async
+The following message will be used for the patch API method.
+{"databaseVersion": "POSTGRES_16", "name": "cloudsql-13", "project": "netflixauth-442114", "settings": {}}
+
+PS C:\Users\My PC\workspaces\bug_simulate> gcloud sql operations list `
+>>   --instance=cloudsql-13 `
+>>   --project=netflixauth-442114
+NAME                                  TYPE           START                          END                            ERROR  STATUS
+15b09605-5c45-4246-aaf5-f16a0000002b  UPDATE         2026-09-07T15:38:59.628+00:00  T                              -      RUNNING
+566829de-f97b-49f2-b986-2bb10000002b  BACKUP_VOLUME  2026-09-07T15:27:25.187+00:00  2026-09-07T15:27:39.857+00:00  -      DONE
+53fdf3f5-3186-4ad7-985b-20c20000002b  CREATE         2026-09-07T15:23:20.248+00:00  2026-09-07T15:27:43.461+00:00  -      DONE
+
+PS C:\Users\My PC\workspaces\bug_simulate> gcloud sql operations list `
+>>   --instance=cloudsql-13  
+NAME                                  TYPE           START                          END                            ERROR  STATUS
+0c73d629-e41d-4850-b8fb-c0cd0000002b  BACKUP_VOLUME  2026-09-07T15:50:05.704+00:00  2026-09-07T15:51:06.469+00:00  -      DONE
+229a08d9-6e01-4d64-be5a-2fc10000002b  BACKUP_VOLUME  2026-09-07T15:42:50.377+00:00  2026-09-07T15:43:30.880+00:00  -      DONE
+15b09605-5c45-4246-aaf5-f16a0000002b  UPDATE         2026-09-07T15:38:59.628+00:00  2026-09-07T15:52:00.831+00:00  -      DONE
+566829de-f97b-49f2-b986-2bb10000002b  BACKUP_VOLUME  2026-09-07T15:27:25.187+00:00  2026-09-07T15:27:39.857+00:00  -      DONE
+53fdf3f5-3186-4ad7-985b-20c20000002b  CREATE         2026-09-07T15:23:20.248+00:00  2026-09-07T15:27:43.461+00:00  -      DONE
+
+PS C:\Users\My PC\workspaces\bug_simulate> gcloud sql operations list `
+>>   --instance=cloudsql-13 `
+>>   --project=netflixauth-442114 `
+>>   --format=json
+[
+  {
+    "backupContext": {
+      "backupId": "1788796205646",
+      "kind": "sql#backupContext",
+      "name": "projects/netflixauth-442114/backups/4ace4d56-b885-476d-b7fc-70b0ae3074f6"
+    },
+    "endTime": "2026-09-07T15:51:06.469Z",
+    "insertTime": "2026-09-07T15:50:05.647Z",
+    "kind": "sql#operation",
+    "name": "0c73d629-e41d-4850-b8fb-c0cd0000002b",
+    "operationType": "BACKUP_VOLUME",
+    "selfLink": "https://sqladmin.googleapis.com/sql/v1beta4/projects/netflixauth-442114/operations/0c73d629-e41d-4850-b8fb-c0cd0000002b",
+    "startTime": "2026-09-07T15:50:05.704Z",
+    "status": "DONE",
+    "targetId": "cloudsql-13",
+    "targetLink": "https://sqladmin.googleapis.com/sql/v1beta4/projects/netflixauth-442114/instances/cloudsql-13",
+    "targetProject": "netflixauth-442114"
+  },
+  {
+    "backupContext": {
+      "backupId": "1788795770304",
+      "kind": "sql#backupContext",
+      "name": "projects/netflixauth-442114/backups/f015c508-5a6c-4d4c-be2a-8b47bbe2eb33"
+    },
+    "endTime": "2026-09-07T15:43:30.880Z",
+    "insertTime": "2026-09-07T15:42:50.305Z",
+    "kind": "sql#operation",
+    "name": "229a08d9-6e01-4d64-be5a-2fc10000002b",
+    "operationType": "BACKUP_VOLUME",
+    "selfLink": "https://sqladmin.googleapis.com/sql/v1beta4/projects/netflixauth-442114/operations/229a08d9-6e01-4d64-be5a-2fc10000002b",
+    "startTime": "2026-09-07T15:42:50.377Z",
+    "status": "DONE",
+    "targetId": "cloudsql-13",
+    "targetLink": "https://sqladmin.googleapis.com/sql/v1beta4/projects/netflixauth-442114/instances/cloudsql-13",
+    "targetProject": "netflixauth-442114"
+  },
+  {
+    "endTime": "2026-09-07T15:52:00.831Z",
+    "insertTime": "2026-09-07T15:38:59.530Z",
+    "kind": "sql#operation",
+    "name": "15b09605-5c45-4246-aaf5-f16a0000002b",
+    "operationType": "UPDATE",
+    "selfLink": "https://sqladmin.googleapis.com/sql/v1beta4/projects/netflixauth-442114/operations/15b09605-5c45-4246-aaf5-f16a0000002b",
+    "startTime": "2026-09-07T15:38:59.628Z",
+    "status": "DONE",
+    "targetId": "cloudsql-13",
+    "targetLink": "https://sqladmin.googleapis.com/sql/v1beta4/projects/netflixauth-442114/instances/cloudsql-13",
+    "targetProject": "netflixauth-442114",
+    "user": "thaiallb63@gmail.com"
+  },
+  {
+    "backupContext": {
+      "backupId": "1788794845118",
+      "kind": "sql#backupContext",
+      "name": "projects/netflixauth-442114/backups/b1835e93-86e8-4de7-8a1a-7702b0322734"
+    },
+    "endTime": "2026-09-07T15:27:39.857Z",
+    "insertTime": "2026-09-07T15:27:25.126Z",
+    "kind": "sql#operation",
+    "name": "566829de-f97b-49f2-b986-2bb10000002b",
+    "operationType": "BACKUP_VOLUME",
+    "selfLink": "https://sqladmin.googleapis.com/sql/v1beta4/projects/netflixauth-442114/operations/566829de-f97b-49f2-b986-2bb10000002b",
+    "startTime": "2026-09-07T15:27:25.187Z",
+    "status": "DONE",
+    "targetId": "cloudsql-13",
+    "targetLink": "https://sqladmin.googleapis.com/sql/v1beta4/projects/netflixauth-442114/instances/cloudsql-13",
+    "targetProject": "netflixauth-442114"
+  },
+  {
+    "endTime": "2026-09-07T15:27:43.461Z",
+    "insertTime": "2026-09-07T15:23:20.157Z",
+    "kind": "sql#operation",
+    "name": "53fdf3f5-3186-4ad7-985b-20c20000002b",
+    "operationType": "CREATE",
+    "selfLink": "https://sqladmin.googleapis.com/sql/v1beta4/projects/netflixauth-442114/operations/53fdf3f5-3186-4ad7-985b-20c20000002b",
+    "startTime": "2026-09-07T15:23:20.248Z",
+    "status": "DONE",
+    "targetId": "cloudsql-13",
+    "targetLink": "https://sqladmin.googleapis.com/sql/v1beta4/projects/netflixauth-442114/instances/cloudsql-13",
+    "targetProject": "netflixauth-442114",
+    "user": "thaiallb63@gmail.com"
+  }
+]
