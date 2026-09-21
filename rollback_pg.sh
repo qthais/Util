@@ -1,4 +1,3 @@
-cat > ~/postgres-migration/migrate.sh <<'EOF'
 #!/usr/bin/env bash
 
 set -Eeuo pipefail
@@ -45,13 +44,10 @@ TMP_DIR=""
 GCS_PID=""
 
 cleanup() {
-
     if [[ -n "${GCS_PID:-}" ]]; then
-
         if kill -0 "$GCS_PID" 2>/dev/null; then
             kill "$GCS_PID" 2>/dev/null || true
         fi
-
     fi
 
     if [[ -n "${TMP_DIR:-}" && -d "$TMP_DIR" ]]; then
@@ -66,7 +62,6 @@ trap cleanup EXIT INT TERM
 ########################################
 
 usage() {
-
     cat <<EOF2
 
 Usage:
@@ -105,69 +100,54 @@ TARGET_PORT=5432
 ########################################
 
 while [[ $# -gt 0 ]]; do
-
     case "$1" in
-
         --source-host)
             SOURCE_HOST="$2"
             shift 2
             ;;
-
         --source-port)
             SOURCE_PORT="$2"
             shift 2
             ;;
-
         --source-db)
             SOURCE_DB="$2"
             shift 2
             ;;
-
         --source-user)
             SOURCE_USER="$2"
             shift 2
             ;;
-
         --target-host)
             TARGET_HOST="$2"
             shift 2
             ;;
-
         --target-port)
             TARGET_PORT="$2"
             shift 2
             ;;
-
         --target-db)
             TARGET_DB="$2"
             shift 2
             ;;
-
         --target-user)
             TARGET_USER="$2"
             shift 2
             ;;
-
         --bucket)
             BUCKET="$2"
             shift 2
             ;;
-
         --dump-object)
             DUMP_OBJECT="$2"
             shift 2
             ;;
-
         -h|--help)
             usage
             ;;
-
         *)
             error "Unknown argument: $1"
             ;;
-
     esac
-
 done
 
 ########################################
@@ -228,13 +208,11 @@ log "  Object: $GCS_DUMP"
 ########################################
 
 if ! command -v pg_dump >/dev/null 2>&1; then
-
     log "PostgreSQL client not found."
     log "Installing PostgreSQL 17 client..."
 
     sudo apt-get update
     sudo apt-get install -y postgresql-client-17
-
 fi
 
 ########################################
@@ -367,7 +345,6 @@ DO $$
 DECLARE
     truncate_sql TEXT;
 BEGIN
-
     SELECT
         'TRUNCATE TABLE ' ||
         string_agg(
@@ -382,7 +359,6 @@ BEGIN
     IF truncate_sql IS NOT NULL THEN
         EXECUTE truncate_sql;
     END IF;
-
 END
 $$;
 
@@ -452,18 +428,12 @@ set -e
 ########################################
 
 if [[ "$RESTORE_RC" -ne 0 ]]; then
-
     log "pg_restore returned exit code $RESTORE_RC."
-
     log "Known PostgreSQL 17 -> PostgreSQL 13 compatibility issue:"
     log "  SET transaction_timeout = 0"
-
     log "The restore continued and processed the data."
-
 else
-
     log "pg_restore completed without errors."
-
 fi
 
 ########################################
@@ -487,9 +457,7 @@ GCS_PID=""
 ########################################
 
 if [[ "$GCS_RC" -ne 0 ]]; then
-
     error "GCS download failed. Exit code: $GCS_RC"
-
 fi
 
 log "GCS streaming completed successfully."
@@ -508,4 +476,3 @@ log "Status: SUCCESS"
 log "=========================================="
 
 exit 0
-EOF
