@@ -1,27 +1,75 @@
-# PostgreSQL 17 → PostgreSQL 13 Rollback Runbook
 
-## 1. Enter Downtime
+# Rollback Guideline – Digital Library
 
-- Enable maintenance mode.
-- Stop application writes, workers, scheduled jobs, and consumers.
-- Record rollback start time.
+**Source Database:** PostgreSQL 17  
+**Fallback Database:** PostgreSQL 13  
+**Database Name:** `digitallibrabry`
 
-## 2. Prepare PostgreSQL 13
+## 1. Rollback Preparation
 
-Set:
+Initiate this procedure if the PostgreSQL 17 production environment does not meet the expected performance or stability requirements after the hypercare period.
+
+Before starting, confirm that the PostgreSQL 13 Fallback Database is available and that the operator has the required database and GCS permissions.
+
+## 2. Enter Maintenance Mode
+
+1. Enable application maintenance mode.
+2. Stop application writes, workers, scheduled jobs, and consumers to prevent further database modifications.
+3. Record the rollback start time.
+
+## 3. Export Data from PostgreSQL 17 to GCS
+
+Run the following commands from the migration VM or an environment with PostgreSQL client tools and Google Cloud CLI installed.
+
+Set the connection details and GCS bucket:
 
 ```bash
-export TARGET_HOST="PG13_PUBLIC_IP"
-export TARGET_PORT="5432"
-export TARGET_USER="postgres"
-export TARGET_PASSWORD="..."
-export TARGET_DB="lego"
-export PGPASSWORD="$TARGET_PASSWORD"
+export SOURCE_HOST="PG17_HOST"
+export SOURCE_PORT="5432"
+export SOURCE_USER="postgres"
+export SOURCE_DB="digitallibrabry"
+
+export BUCKET_NAME="YOUR_GCS_BUCKET"
+export DUMP_FILE="digitallibrabry-data-only.sql"
+
+export PGPASSWORD="YOUR_SOURCE_PASSWORD"
 ```
 
-Verify:
+Export the data-only dump and upload it to GCS:
 
 ```bash
+pg_dump \
+  -h "$SOURCE_HOST" \
+  -p "$SOURCE_PORT" \
+  -U "$SOURCE_USER" \
+  -d "$SOURCE_DB" \
+  --data-only \
+  --no-owner \
+  --no-acl \
+  --verbose \
+  | sed '/^SET transaction_timeout = /d' \
+  | gcloud storage cp - "gs://$BUCKET_NAME/$DUMP_FILE"
+```
+
+Verify that the dump file exists in GCS:
+
+```bash
+gcloud storage ls -L \
+  "gs://$BUCKET_NAME/$DUMP_FILE"
+```
+
+## 4. Prepare the PostgreSQL 13 Fallback Database
+
+Connect to the PostgreSQL 13 instance and verify the target database:
+
+```bash
+export TARGET_HOST="PG13_HOST"
+export TARGET_PORT="5432"
+export TARGET_USER="postgres"
+export TARGET_DB="digitallibrabry"
+
+export PGPASSWORD="YOUR_TARGET_PASSWORD"
+
 psql \
   -h "$TARGET_HOST" \
   -p "$TARGET_PORT" \
@@ -30,7 +78,9 @@ psql \
   -c "SELECT version();"
 ```
 
-## 3. Truncate All Tables in PostgreSQL 13
+Confirm that the connection is to PostgreSQL 13 and the database is `digitallibrabry`.
+
+Truncate all existing application tables before importing the latest data:
 
 ```bash
 psql \
@@ -44,11 +94,17 @@ DECLARE
     sql TEXT;
 BEGIN
     SELECT 'TRUNCATE TABLE ' ||
-           string_agg(format('%I.%I', schemaname, tablename), ', ') ||
+           string_agg(
+               format('%I.%I', schemaname, tablename),
+               ', '
+           ) ||
            ' CASCADE'
     INTO sql
     FROM pg_tables
-    WHERE schemaname NOT IN ('pg_catalog', 'information_schema');
+    WHERE schemaname NOT IN (
+        'pg_catalog',
+        'information_schema'
+    );
 
     IF sql IS NOT NULL THEN
         EXECUTE sql;
@@ -58,96 +114,75 @@ $$;
 SQL
 ```
 
-## 4. Dump PostgreSQL 17 → GCS
+**Important:** Confirm the target database before executing the truncate operation. This operation removes existing table data.
 
-```bash
-export SOURCE_HOST="35.253.109.7"
-export SOURCE_PORT="5432"
-export SOURCE_USER="postgres"
-export BUCKET_NAME="dev111111"
-export DUMP_FILE="lego-data-only.sql"
-export PGPASSWORD="Bachduong16!"
+## 5. Import Data into PostgreSQL 13
 
-pg_dump \
-  -h "$SOURCE_HOST" \
-  -p "$SOURCE_PORT" \
-  -U "$SOURCE_USER" \
-  -d "lego" \
-  --data-only \
-  --no-owner \
-  --no-acl \
-  --verbose \
-  | sed '/^SET transaction_timeout = /d' \
-  | gcloud storage cp - "gs://$BUCKET_NAME/$DUMP_FILE"
-```
+1. Open Google Cloud Console and navigate to Cloud SQL.
+2. Select the PostgreSQL 13 instance.
+3. Navigate to **Import**.
+4. Select the SQL import format and the GCS file:
 
-Verify:
+   `gs://YOUR_GCS_BUCKET/digitallibrabry-data-only.sql`
 
-```bash
-gcloud storage ls -L \
-  "gs://$BUCKET_NAME/$DUMP_FILE"
-```
+5. Set the target database to `digitallibrabry`.
+6. Start the import and wait for completion.
 
-## 5. Import via Cloud SQL UI
-
-```text
-Cloud SQL
-→ PostgreSQL 13 instance
-→ Import
-→ SQL
-→ Google Cloud Storage
-→ lego-data-only.sql
-→ Database: lego
-→ Import
-```
-
-Wait for:
+Verify that the import status is:
 
 ```text
 STATUS: DONE
 ERROR: -
 ```
 
-## 6. Validate
+Do not proceed with application cutover if the import fails.
 
-Run:
+## 6. Validate the Fallback Database
+
+Run the database comparison script to verify the restored data against PostgreSQL 17:
 
 ```bash
 ./compare_pg17_pg13.sh
 ```
 
-Review:
+Review the generated report:
 
 ```text
 migration-report/report.txt
 ```
 
-Required checks:
+Confirm the following checks before proceeding:
 
-```text
-[ ] Schemas
-[ ] Tables
-[ ] Exact row counts
-[ ] Columns
-[ ] Indexes
-[ ] Index properties
-[ ] Constraints
-[ ] Sequence definitions
-[ ] Sequence state + MAX(id)
-[ ] Extensions
-[ ] Views
-[ ] Materialized views
-[ ] Triggers
-```
+- [ ] Schemas and tables
+- [ ] Exact row counts
+- [ ] Columns and data types
+- [ ] Indexes and index properties
+- [ ] Constraints
+- [ ] Sequence definitions and sequence states
+- [ ] Sequence values against `MAX(id)`
+- [ ] Extensions
+- [ ] Views and materialized views
+- [ ] Triggers
 
-## 7. Cutover to PostgreSQL 13
+Resolve any discrepancies that affect application functionality or data integrity before switching the application.
 
-- Switch application connection to PG13.
-- Start workers/jobs/consumers.
-- Remove maintenance mode.
-- Verify application reads and writes.
+## 7. Switch Application to PostgreSQL 13
 
-## 8. Cleanup
+1. Update the application database connection configuration to the PostgreSQL 13 Fallback Database.
+2. Verify that the connection points to the correct instance and database, `digitallibrabry`.
+3. Restart application services, workers, scheduled jobs, and consumers.
+4. Verify application functionality and database read/write operations.
+5. Disable maintenance mode.
+6. Monitor application performance, error logs, and database connectivity.
+
+## 8. Complete Rollback
+
+- Confirm that the application is operating on PostgreSQL 13.
+- Notify the relevant stakeholders that rollback is complete.
+- Record the rollback completion time and validation results.
+- Retain the PostgreSQL 17 database and migration dump until the rollback outcome has been reviewed and approved.
+
+Clean up database credentials from the execution environment:
 
 ```bash
 unset PGPASSWORD
