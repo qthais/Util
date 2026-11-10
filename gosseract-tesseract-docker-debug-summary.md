@@ -272,10 +272,6 @@ Có hai hướng:
 `libleptonica.so.6`.** Hai SONAME khác nhau không đảm bảo ABI tương
 thích; symlink không thể biến một ABI thành ABI khác.
 
-## 7. Build thành công có đảm bảo application chạy được không?
-
-Không. Build thành công không đồng nghĩa application chắc chắn chạy
-được.
 
   -----------------------------------------------------------------------
   Giai đoạn                           Điều được xác nhận
